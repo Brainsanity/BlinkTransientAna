@@ -110,47 +110,56 @@ classdef BlinkTransient < handle
 			% if( exist( [folder,'/Data4Blinks.mat'], 'file' ) == 2 )	delete( [folder,'/Data4Blinks.mat'] ); end
 			if( exist( [folder,'/Data4Blinks.mat'], 'file' ) == 2 )
 				load( [folder,'/Data4Blinks.mat'] );
-			else
-				subfolders = ToolKit.ListFolders(folder);
-				index = logical( zeros( size(subfolders,1), 1 ) );
-				for( iFolder = 1 : size(subfolders,1) )
-					if( sum( subfolders( iFolder, find( subfolders(iFolder,:) == '/' | subfolders(iFolder,:) == '\', 1, 'last' ) + 1 : end ) == '-' ) ~= 2 ) index(iFolder) = 1; end
-				end
-				% subfolders(index,:) = [];
-
-				for( iFolder = size(subfolders,1) : -1 : 1 )
-					load( [ ToolKit.RMEndSpaces(subfolders(iFolder,:)), '/Trials.mat' ] );
-					VT = Trials;
-
-					% tirals only with drifts
-					Data4Blinks(iFolder).sessionName = subfolders( iFolder, find( subfolders(iFolder,:) == '/' | subfolders(iFolder,:) == '\', 1, 'last' ) + 1 : end );
-					Data4Blinks(iFolder).trialsWithoutBlink = VT;
-					index = logical(zeros(size(VT)));
-					for( i = 1 : size(VT,2) )
-						if( ~isempty( VT(i).blinks.start ) &&  any( VT(i).tRampOn <= VT(i).blinks.start + VT(i).blinks.duration & VT(i).blinks.start <= VT(i).tMaskOn ) ||...
-							~isempty( VT(i).notracks.start ) &&  any( VT(i).tRampOn <= VT(i).notracks.start + VT(i).notracks.duration & VT(i).notracks.start <= VT(i).tMaskOn ) ||...
-							~isempty( VT(i).saccades.start ) && any( VT(i).tRampOn <= VT(i).saccades.start + VT(i).saccades.duration & VT(i).saccades.start <= VT(i).tMaskOn ) ||...
-							discardMicrosaccades && ~isempty( VT(i).microsaccades.start ) && any( VT(i).tRampOn <= VT(i).microsaccades.start + VT(i).microsaccades.duration & VT(i).microsaccades.start <= VT(i).tMaskOn ) )
-							index(i) = 1;
-						end
+				if( ~isfield( Data4Blinks, 'discardMicrosaccades' ) )
+					for( i = 1 : size(Data4Blinks,2) )
+						Data4Blinks(i).discardMicrosaccades = true;
 					end
-					Data4Blinks(iFolder).trialsWithoutBlink(index) = [];
-
-					% trials only with blinks
-					Data4Blinks(iFolder).trialsWithBlink = VT;
-					index = logical(zeros(size(VT)));
-					for( i = 1 : size(VT,2) )
-						if( isempty( VT(i).blinks.start ) ||...
-							all( VT(i).tRampOn > VT(i).blinks.start + VT(i).blinks.duration | VT(i).blinks.start > VT(i).tMaskOn ) ||...
-							~isempty( VT(i).saccades.start ) && any( VT(i).tRampOn <= VT(i).saccades.start + VT(i).saccades.duration & VT(i).saccades.start <= VT(i).tMaskOn ) ||...
-							discardMicrosaccades && ~isempty( VT(i).microsaccades.start ) && any( VT(i).tRampOn <= VT(i).microsaccades.start + VT(i).microsaccades.duration & VT(i).microsaccades.start <= VT(i).tMaskOn ) )
-							index(i) = 1;
-						end
-					end
-					Data4Blinks(iFolder).trialsWithBlink(index) = [];
+					save( [folder,'/Data4Blinks.mat'], 'Data4Blinks' );
 				end
-				save( [folder,'/Data4Blinks.mat'], 'Data4Blinks' );
+				if( Data4Blinks(1).discardMicrosaccades == discardMicrosaccades )
+					return;
+				end
 			end
+			subfolders = ToolKit.ListFolders(folder);
+			index = logical( zeros( size(subfolders,1), 1 ) );
+			for( iFolder = 1 : size(subfolders,1) )
+				if( sum( subfolders( iFolder, find( subfolders(iFolder,:) == '/' | subfolders(iFolder,:) == '\', 1, 'last' ) + 1 : end ) == '-' ) ~= 2 ) index(iFolder) = 1; end
+			end
+			% subfolders(index,:) = [];
+
+			for( iFolder = size(subfolders,1) : -1 : 1 )
+				load( [ ToolKit.RMEndSpaces(subfolders(iFolder,:)), '/Trials.mat' ] );
+				VT = Trials( [Trials.trialType] == 'c' | [Trials.trialType] == 'e' );
+
+				% tirals only with drifts
+				Data4Blinks(iFolder).sessionName = subfolders( iFolder, find( subfolders(iFolder,:) == '/' | subfolders(iFolder,:) == '\', 1, 'last' ) + 1 : end );
+				Data4Blinks(iFolder).trialsWithoutBlink = VT;
+				index = logical(zeros(size(VT)));
+				for( i = 1 : size(VT,2) )
+					if( ~isempty( VT(i).blinks.start ) &&  any( VT(i).tRampOn <= VT(i).blinks.start + VT(i).blinks.duration & VT(i).blinks.start <= VT(i).tMaskOn ) ||...
+						~isempty( VT(i).notracks.start ) &&  any( VT(i).tRampOn <= VT(i).notracks.start + VT(i).notracks.duration & VT(i).notracks.start <= VT(i).tMaskOn ) ||...
+						~isempty( VT(i).saccades.start ) && any( VT(i).tRampOn <= VT(i).saccades.start + VT(i).saccades.duration & VT(i).saccades.start <= VT(i).tMaskOn ) ||...
+						discardMicrosaccades && ~isempty( VT(i).microsaccades.start ) && any( VT(i).tRampOn <= VT(i).microsaccades.start + VT(i).microsaccades.duration & VT(i).microsaccades.start <= VT(i).tMaskOn ) )
+						index(i) = 1;
+					end
+				end
+				Data4Blinks(iFolder).trialsWithoutBlink(index) = [];
+
+				% trials only with blinks
+				Data4Blinks(iFolder).trialsWithBlink = VT;
+				index = logical(zeros(size(VT)));
+				for( i = 1 : size(VT,2) )
+					if( isempty( VT(i).blinks.start ) ||...
+						all( VT(i).tRampOn > VT(i).blinks.start + VT(i).blinks.duration | VT(i).blinks.start > VT(i).tMaskOn ) ||...
+						~isempty( VT(i).saccades.start ) && any( VT(i).tRampOn <= VT(i).saccades.start + VT(i).saccades.duration & VT(i).saccades.start <= VT(i).tMaskOn ) ||...
+						discardMicrosaccades && ~isempty( VT(i).microsaccades.start ) && any( VT(i).tRampOn <= VT(i).microsaccades.start + VT(i).microsaccades.duration & VT(i).microsaccades.start <= VT(i).tMaskOn ) )
+						index(i) = 1;
+					end
+				end
+				Data4Blinks(iFolder).trialsWithBlink(index) = [];
+				Data4Blinks(iFolder).discardMicrosaccades = discardMicrosaccades;
+			end
+			save( [folder,'/Data4Blinks.mat'], 'Data4Blinks' );
 		end
 
 		function Data4Blinks = GetData4Blinks_Beep( folder, anything )
@@ -211,10 +220,11 @@ classdef BlinkTransient < handle
 			end
 		end
 
-		function BlinkEffect( folder, groups )
+		function BlinkEffect( folder, groups, discardMicrosaccades )
 			%% groups:			cell array, each element defines the indices of one data group
 
-			Data4Blinks = BlinkTransient.GetData4Blinks(folder);
+			if( nargin() < 3 ) discardMicrosaccades = true; end
+			Data4Blinks = BlinkTransient.GetData4Blinks( folder, discardMicrosaccades );
 			if( isempty(Data4Blinks) ) return; end
 			if( nargin() < 2 ) groups = mat2cell( 1:size(Data4Blinks,2), 1, ones(size(Data4Blinks)) ); end
 
@@ -850,7 +860,7 @@ classdef BlinkTransient < handle
 		function luminances = Intensity2Luminance( intensities )
 			nMeasureData = 3;
 			for( i = nMeasureData : -1 : 1 )
-				data(i) = load( sprintf( 'F:/BlinkTransient/Monitor Calibration/ASUS278_Contrast_0_Brightness_0_Test_Dist_162_BS_BW_Repeat%d.mat', i+4 ) );
+				data(i) = load( sprintf( 'D:/BlinkTransient/Monitor Calibration/ASUS278_Contrast_0_Brightness_0_Test_Dist_162_BS_BW_Repeat%d.mat', i+4 ) );
 
 				% measured bit steeling intensities
 				bitSteelingSteps = data(i).calResult.bitSteelingSteps;
@@ -941,7 +951,7 @@ classdef BlinkTransient < handle
 			n = 7;
 			for( i = n : -1 : 1 )
 				% data(i) = load(sprintf('D:/0 Research/3 Blink/BlinkTransientExp/BlinkTransient/BlinkTransient/data/yb/Monitor Calibration/ASUS278_Contrast_50_Brightness_50_Measure_Dist_122_BS_BW_Repeat%d.mat',i));
-				data(i) = load(sprintf('D:/0 Research/3 Blink/BlinkTransientExp/BlinkTransient-DPI/BlinkTransient/data/yb/Monitor Calibration/ASUS278_Contrast_0_Brightness_0_Test_Dist_162_BS_BW_Repeat%d.mat',i));
+				data(i) = load(sprintf('D:/BlinkTransient/Monitor Calibration/ASUS278_Contrast_0_Brightness_0_Test_Dist_162_BS_BW_Repeat%d.mat',i));
 			end
 			decLUT =  [ 0,0,0; 0,0,1; 0,1,0; 1,0,0; 0,1,1; 1,0,1; 1,1,0; 1,1,1 ];	% for data collected before monitor calibration
 			decLUT =  [ 0,0,0; 0,0,1; 1,0,0; 1,0,1; 0,1,0; 0,1,1; 1,1,0; 1,1,1 ];
