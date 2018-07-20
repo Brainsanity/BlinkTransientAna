@@ -860,7 +860,7 @@ classdef BlinkTransient < handle
 		function luminances = Intensity2Luminance( intensities )
 			nMeasureData = 3;
 			for( i = nMeasureData : -1 : 1 )
-				data(i) = load( sprintf( 'D:/BlinkTransient/Monitor Calibration/ASUS278_Contrast_0_Brightness_0_Test_Dist_162_BS_BW_Repeat%d.mat', i+4 ) );
+				data(i) = load( sprintf( 'F:/BlinkTransient/Monitor Calibration/ASUS278_Contrast_0_Brightness_0_Test_Dist_162_BS_BW_Repeat%d.mat', i+4 ) );
 
 				% measured bit steeling intensities
 				bitSteelingSteps = data(i).calResult.bitSteelingSteps;
@@ -951,7 +951,7 @@ classdef BlinkTransient < handle
 			n = 7;
 			for( i = n : -1 : 1 )
 				% data(i) = load(sprintf('D:/0 Research/3 Blink/BlinkTransientExp/BlinkTransient/BlinkTransient/data/yb/Monitor Calibration/ASUS278_Contrast_50_Brightness_50_Measure_Dist_122_BS_BW_Repeat%d.mat',i));
-				data(i) = load(sprintf('D:/BlinkTransient/Monitor Calibration/ASUS278_Contrast_0_Brightness_0_Test_Dist_162_BS_BW_Repeat%d.mat',i));
+				data(i) = load(sprintf('F:/BlinkTransient/Monitor Calibration/ASUS278_Contrast_0_Brightness_0_Test_Dist_162_BS_BW_Repeat%d.mat',i));
 			end
 			decLUT =  [ 0,0,0; 0,0,1; 0,1,0; 1,0,0; 0,1,1; 1,0,1; 1,1,0; 1,1,1 ];	% for data collected before monitor calibration
 			decLUT =  [ 0,0,0; 0,0,1; 1,0,0; 1,0,1; 0,1,0; 0,1,1; 1,1,0; 1,1,1 ];
