@@ -107,7 +107,7 @@ classdef BlinkTransient < handle
 			if( nargin() < 2 ) discardMicrosaccades = true; end 		% by default, we discard trials with microsaccades during stimulus
 
 			Data4Blinks = [];
-			% if( exist( [folder,'/Data4Blinks.mat'], 'file' ) == 2 )	delete( [folder,'/Data4Blinks.mat'] ); end
+			if( exist( [folder,'/Data4Blinks.mat'], 'file' ) == 2 )	delete( [folder,'/Data4Blinks.mat'] ); end
 			if( exist( [folder,'/Data4Blinks.mat'], 'file' ) == 2 )
 				load( [folder,'/Data4Blinks.mat'] );
 				if( ~isfield( Data4Blinks, 'discardMicrosaccades' ) )
@@ -255,6 +255,7 @@ classdef BlinkTransient < handle
 				hAligns = { 'left', 'right' };	% horizontal alignments
 				for( j = 2:-1:1 )
 					% amplitudes = [trials{j}.gaborAmp];
+					% contrasts = [trials{j}.gaborAmp];
 					contrasts = BlinkTransient.Intensity2Luminance( [trials{j}.gaborAmp] + bgnLuminance ) / BlinkTransient.Intensity2Luminance(bgnLuminance) - 1;
 					uniConts = unique(contrasts);
 					crctRate(j).rates = zeros(size(trials{j}));
