@@ -252,6 +252,7 @@ classdef BlinkTransient < handle
 				hold on;
 				colors = {'r', 'b'};
 				names = { 'blink', 'no blink' };
+				hAligns = { 'left', 'right' };	% horizontal alignments
 				for( j = 2:-1:1 )
 					% amplitudes = [trials{j}.gaborAmp];
 					contrasts = BlinkTransient.Intensity2Luminance( [trials{j}.gaborAmp] + bgnLuminance ) / BlinkTransient.Intensity2Luminance(bgnLuminance) - 1;
@@ -264,7 +265,7 @@ classdef BlinkTransient < handle
 						index = uniConts(iUni) - conWin/2 <= contrasts & contrasts <= uniConts(iUni) + conWin/2;
 						crctRate(j).rates(iUni) = sum( [trials{j}(index).trialType] == 'c' ) / sum(index);
 						crctRate(j).contrasts(iUni) = uniConts(iUni);
-						text( crctRate(j).contrasts(iUni), crctRate(j).rates(iUni), sprintf('%d', sum(index)), 'HorizontalAlignment', 'left', 'VerticalAlignment', 'top', 'FontSize', 12, 'color', colors{j} );
+						text( crctRate(j).contrasts(iUni), crctRate(j).rates(iUni), sprintf('%d', sum(index)), 'HorizontalAlignment', hAligns{j}, 'VerticalAlignment', 'top', 'FontSize', 12, 'color', colors{j} );
 					end
 					h(j) = plot( crctRate(j).contrasts(1:crctRate(j).nRates), crctRate(j).rates(1:crctRate(j).nRates), 'o', 'LineStyle', 'none', 'LineWidth', 2, 'color', colors{j}, 'DisplayName', sprintf( '%s (n=%d)', names{j}, size(trials{j},2) ) );
 
