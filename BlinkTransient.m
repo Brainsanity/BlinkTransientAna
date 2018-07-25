@@ -437,22 +437,48 @@ classdef BlinkTransient < handle
 		end
 
 
-		function RT = BlinkRT( dataFileName )
-			load(dataFileName);
-			set( figure, 'NumberTitle', 'off', 'name', 'BlinkRT' );
+		function RT = BlinkRT( folder, isPlot, tStep )
+			if( nargin() < 2 ) isPlot = true; end
+			if( nargin() < 3 ) tStep = 5; end 	% by default, 5 ms
 
-			RT = ones(size(Trials)) * -1;
-			for( iTrial = size(Trials,2) : -1 : 1 )
-				starts = [Trials(iTrial).blinks.start];
-				ends = starts + [Trials(iTrial).blinks.duration];
-				starts( starts <= Trials(iTrial).tBlinkBeepOn - Trials(iTrial).tTrialStart ) = [];
-				ends( ends <= Trials(iTrial).tBlinkBeepOn ) = [];
-				if( isempty(starts) ) continue; end
+			RT = [];
+			list = dir(folder);
+			for( i = 1 : size(list,1) )
+				if( list(i).isdir() )
+					if( strcmp( list(i).name, '.' ) || strcmp( list(i).name, '..' ) || strcmp( lower(list(i).name(1:4)), 'demo' ) || strcmp( lower(list(i).name), 'calibration') )
+						continue;
+					else
+					 	RT = [ RT, BlinkTransient.BlinkRT( fullfile(folder, list(i).name), 0 ) ];
+					end
+				else
+					if( strcmp( list(i).name, 'Trials.mat' ) )
+						load( fullfile(folder, list(i).name) );
 
-				RT(iTrial) = starts(1) - (Trials(iTrial).tBlinkBeepOn - Trials(iTrial).tTrialStart);
+						tmpRT = ones(size(Trials)) * -1;
+						for( iTrial = size(Trials,2) : -1 : 1 )
+							starts = [Trials(iTrial).blinks.start];
+							ends = starts + [Trials(iTrial).blinks.duration];
+							starts( starts <= Trials(iTrial).tBlinkBeepOn - Trials(iTrial).tTrialStart ) = [];
+							ends( ends <= Trials(iTrial).tBlinkBeepOn ) = [];
+							if( isempty(starts) ) continue; end
+
+							tmpRT(iTrial) = starts(1) - (Trials(iTrial).tBlinkBeepOn - Trials(iTrial).tTrialStart);
+						end
+
+						RT = [RT tmpRT];
+					end
+				end
 			end
+
 			RT(RT < 0) = [];
-			hist( RT, 0:10:1000 );
+			
+			if( isPlot )
+				set( figure, 'NumberTitle', 'off', 'name', 'BlinkRT' );
+				ToolKit.Hist( RT, min(RT) - tStep/2 : tStep : max(RT) + tStep/2 );
+				set( gca, 'XLim', [0 2000], 'box', 'off', 'LineWidth', 2, 'FontSize', 20 );
+				xlabel( 'Reaction time (ms)' );
+				ylabel( 'Number of trials' );
+			end
 		end
 
 
