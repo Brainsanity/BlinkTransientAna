@@ -254,6 +254,10 @@ classdef BlinkTransient < handle
 				names = { 'blink', 'no blink' };
 				hAligns = { 'left', 'right' };	% horizontal alignments
 				for( j = 2:-1:1 )
+					if( isempty(trials{j}) )
+						h(j) = [];
+						continue;
+					end
 					% amplitudes = [trials{j}.gaborAmp];
 					% contrasts = [trials{j}.gaborAmp];
 					contrasts = BlinkTransient.Intensity2Luminance( [trials{j}.gaborAmp] + bgnLuminance ) / BlinkTransient.Intensity2Luminance(bgnLuminance) - 1;
