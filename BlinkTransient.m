@@ -30,7 +30,7 @@ classdef BlinkTransient < handle
 		function EIS2Mat( folder )
 			if( folder(end) == '\' || folder(end) == '/' ) folder(end) = []; end
 			fprintf('%s\n', folder);
-			if( size(folder,2) > 10 && strcmp( folder(end-10:end), lower('calibration') ) ) return; end
+			if( size(folder,2) > 10 && strcmpi( folder(end-10:end), 'calibration' ) ) return; end
 			eisFNs = dir( [folder, '/*.eis'] );
 			% if( exist( [folder,'/Trials.mat'], 'file' ) == 2 ) delete( [folder,'/Trials.mat'] ); end
 			if( ~isempty(eisFNs) && exist( [folder,'/Trials.mat'], 'file' ) ~= 2 )
@@ -109,7 +109,7 @@ classdef BlinkTransient < handle
 			Data4Blinks = [];
 			if( exist( [folder,'/Data4Blinks.mat'], 'file' ) == 2 )	delete( [folder,'/Data4Blinks.mat'] ); end
 			if( exist( [folder,'/Data4Blinks.mat'], 'file' ) == 2 )
-				load( [folder,'/Data4Blinks.mat'] );
+				load( [folder,'/Data4Blinks.mat'], 'Trials' );
 				if( ~isfield( Data4Blinks, 'discardMicrosaccades' ) )
 					for( i = 1 : size(Data4Blinks,2) )
 						Data4Blinks(i).discardMicrosaccades = true;
@@ -121,20 +121,20 @@ classdef BlinkTransient < handle
 				end
 			end
 			subfolders = ToolKit.ListFolders(folder);
-			index = logical( zeros( size(subfolders,1), 1 ) );
+			index =  false( size(subfolders,1), 1 ) ;
 			for( iFolder = 1 : size(subfolders,1) )
 				if( sum( subfolders( iFolder, find( subfolders(iFolder,:) == '/' | subfolders(iFolder,:) == '\', 1, 'last' ) + 1 : end ) == '-' ) ~= 2 ) index(iFolder) = 1; end
 			end
 			% subfolders(index,:) = [];
 
 			for( iFolder = size(subfolders,1) : -1 : 1 )
-				load( [ ToolKit.RMEndSpaces(subfolders(iFolder,:)), '/Trials.mat' ] );
+				load( [ ToolKit.RMEndSpaces(subfolders(iFolder,:)), '/Trials.mat' ], 'Trials' );
 				VT = Trials( [Trials.trialType] == 'c' | [Trials.trialType] == 'e' );
 
 				% tirals only with drifts
 				Data4Blinks(iFolder).sessionName = subfolders( iFolder, find( subfolders(iFolder,:) == '/' | subfolders(iFolder,:) == '\', 1, 'last' ) + 1 : end );
 				Data4Blinks(iFolder).trialsWithoutBlink = VT;
-				index = logical(zeros(size(VT)));
+				index = false(size(VT));
 				for( i = 1 : size(VT,2) )
 					if( ~isempty( VT(i).blinks.start ) &&  any( VT(i).tRampOn <= VT(i).blinks.start + VT(i).blinks.duration & VT(i).blinks.start <= VT(i).tMaskOn ) ||...
 						...%~isempty( VT(i).notracks.start ) &&  any( VT(i).tRampOn <= VT(i).notracks.start + VT(i).notracks.duration & VT(i).notracks.start <= VT(i).tMaskOn ) ||...
@@ -147,7 +147,7 @@ classdef BlinkTransient < handle
 
 				% trials only with blinks
 				Data4Blinks(iFolder).trialsWithBlink = VT;
-				index = logical(zeros(size(VT)));
+				index = false(size(VT));
 				for( i = 1 : size(VT,2) )
 					if( isempty( VT(i).blinks.start ) ||...
 						all( VT(i).tRampOn > VT(i).blinks.start + VT(i).blinks.duration | VT(i).blinks.start > VT(i).tMaskOn ) ||...
@@ -168,17 +168,17 @@ classdef BlinkTransient < handle
 			Data4Blinks = [];
 			% if( exist( [folder,'/Data4Blinks.mat'], 'file' ) == 2 )	delete( [folder,'/Data4Blinks.mat'] ); end
 			if( exist( [folder,'/Data4Blinks.mat'], 'file' ) == 2 )
-				load( [folder,'/Data4Blinks.mat'] );
+				load( [folder,'/Data4Blinks.mat'], 'Data4Blinks' );
 			else
 				subfolders = ToolKit.ListFolders(folder);
-				index = logical( zeros( size(subfolders,1), 1 ) );
+				index =  false( size(subfolders,1), 1 ) ;
 				for( iFolder = 1 : size(subfolders,1) )
 					if( sum( subfolders( iFolder, find( subfolders(iFolder,:) == '/' | subfolders(iFolder,:) == '\', 1, 'last' ) + 1 : end ) == '-' ) ~= 2 ) index(iFolder) = 1; end
 				end
 				% subfolders(index,:) = [];
 
 				for( iFolder = size(subfolders,1) : -1 : 1 )
-					load( [ ToolKit.RMEndSpaces(subfolders(iFolder,:)), '/Trials.mat' ] );
+					load( [ ToolKit.RMEndSpaces(subfolders(iFolder,:)), '/Trials.mat' ], 'Trials' );
 					VT = Trials( [Trials.trialType] == 'c' | [Trials.trialType] == 'e' );
 					VT( [VT.tFpOn] < 0 | [VT.tBlinkBeepOn] < 0 | [VT.tRampOn] < 0 | [VT.tPlateauOn] < 0 | [VT.tResponse] < 0 ) = [];
 
@@ -445,14 +445,14 @@ classdef BlinkTransient < handle
 			list = dir(folder);
 			for( i = 1 : size(list,1) )
 				if( list(i).isdir() )
-					if( strcmp( list(i).name, '.' ) || strcmp( list(i).name, '..' ) || strcmp( lower(list(i).name(1:4)), 'demo' ) || strcmp( lower(list(i).name), 'calibration') )
+					if( strcmp( list(i).name, '.' ) || strcmp( list(i).name, '..' ) || strcmpi( list(i).name(1:4), 'demo' ) || strcmpi( list(i).name, 'calibration') )
 						continue;
 					else
 					 	RT = [ RT, BlinkTransient.BlinkRT( fullfile(folder, list(i).name), 0 ) ];
 					end
 				else
 					if( strcmp( list(i).name, 'Trials.mat' ) )
-						load( fullfile(folder, list(i).name) );
+						load( fullfile(folder, list(i).name), 'Trials' );
 
 						tmpRT = ones(size(Trials)) * -1;
 						for( iTrial = size(Trials,2) : -1 : 1 )
@@ -483,7 +483,7 @@ classdef BlinkTransient < handle
 
 
 		function [driftPS, img] = PowerSpectrumAna( dataFileName )
-			load( dataFileName );
+			load( dataFileName, 'Trials' );
 
 			swPix = 2560;	% screen width in pixels
 			swMm = 600;		% screen width in mm
@@ -606,7 +606,7 @@ classdef BlinkTransient < handle
 			
 			modulator = lower(modulator);
 
-			load( dataFileName );
+			load( dataFileName, 'Trials' );
 
 			swPix = 2560;	% screen width in pixels
 			swMm = 600;		% screen width in mm
