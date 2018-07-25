@@ -235,18 +235,16 @@ classdef BlinkTransient < handle
 				data(iGroup).trialsWithBlink = [Data4Blinks(groups{iGroup}).trialsWithBlink];
 				data(iGroup).trialsWithoutBlink = [Data4Blinks(groups{iGroup}).trialsWithoutBlink];
 			end
-			bgnLuminance = double(data(iGroup).trialsWithBlink(1).bgnLuminance);
 
 			set( figure, 'NumberTitle', 'off', 'name', sprintf( '%s: Blink VS No Blink', folder( min( find( folder == '\' | folder == '/', 2, 'last' ) ) + 1 : end ) ), 'color', 'w' );
 			nCols = ceil( sqrt( size(data,2) ) );
 			nRows = ceil( size(data,2) / nCols );
 			for( iGroup = 1 : size(data,2) )
-				% tirals only with drifts
-				trials{2} = data(iGroup).trialsWithoutBlink;
+				trials{2} = data(iGroup).trialsWithoutBlink;	% tirals only with drifts
+				trials{1} = data(iGroup).trialsWithBlink;		% trials only with blinks
+				if( isempty(trials{1}) || isempty(trials{2}) ) continue; end
 
-				% trials only with blinks
-				trials{1} = data(iGroup).trialsWithBlink;
-				if( isempty(trials{1}) ) continue; end
+				bgnLuminance = double(trials{1}(1).bgnLuminance);
 
 				subplot( nRows, nCols, iGroup );
 				hold on;
