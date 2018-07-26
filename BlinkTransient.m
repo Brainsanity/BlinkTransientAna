@@ -109,7 +109,7 @@ classdef BlinkTransient < handle
 			Data4Blinks = [];
 			if( exist( [folder,'/Data4Blinks.mat'], 'file' ) == 2 )	delete( [folder,'/Data4Blinks.mat'] ); end
 			if( exist( [folder,'/Data4Blinks.mat'], 'file' ) == 2 )
-				load( [folder,'/Data4Blinks.mat'], 'Trials' );
+				load( [folder,'/Data4Blinks.mat'], 'Data4Blinks' );
 				if( ~isfield( Data4Blinks, 'discardMicrosaccades' ) )
 					for( i = 1 : size(Data4Blinks,2) )
 						Data4Blinks(i).discardMicrosaccades = true;
