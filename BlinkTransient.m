@@ -37,21 +37,21 @@ classdef BlinkTransient < handle
 					   {1:3, 4:6, 7:8, 10:11, 12:14, 15:17, 18:20},...
 					   {1} };
 
-			set( figure, 'NumberTitle', 'off', 'name', 'BlinkRT' );
+			set( figure, 'NumberTitle', 'off', 'name', 'BlinkRT', 'color', 'w' );
 			nHRT = get( gcf, 'number' );
 			pause(0.1);
 			jf = get(handle(gcf),'javaframe');
 		 	jf.setMaximized(1);
 		 	pause(0.5);
 
-			set( figure, 'NumberTitle', 'off', 'name', 'Fixational saccade amplitude' );
+			set( figure, 'NumberTitle', 'off', 'name', 'Fixational saccade amplitude', 'color', 'w' );
 			nHAmp = get( gcf, 'number' );
 			pause(0.1);
 			jf = get(handle(gcf),'javaframe');
 		 	jf.setMaximized(1);
 		 	pause(0.5);
 
-		 	set( figure, 'NumberTitle', 'off', 'name', ['Fixational saccade rate aligned to ', 'PlateauOn' ] );
+		 	set( figure, 'NumberTitle', 'off', 'name', ['Fixational saccade rate aligned to ', 'PlateauOn' ], 'color', 'w' );
 			nHRate = get( gcf, 'number' );
 			pause(0.1);
 			jf = get(handle(gcf),'javaframe');
@@ -61,12 +61,12 @@ classdef BlinkTransient < handle
 			for( iSbj = 1 : size(sbj,2) )
 				figure(nHRT);
 				subplot( 2, 3, iSbj );
-				BlinkTransient.BlinkRT( [ 'F:\BlinkTransient\', sbj{iSbj} ], true, [], false );
+				BlinkTransient.BlinkRT( [ 'F:\BlinkTransient\', sbj{iSbj} ], [], true, [], false );
 				title(sbj{iSbj});
 
 				figure(nHAmp);
 				subplot( 2, 3, iSbj );
-				BlinkTransient.FixSacAmp( [ 'F:\BlinkTransient\', sbj{iSbj} ], true, [], false );
+				BlinkTransient.FixSacAmp( [ 'F:\BlinkTransient\', sbj{iSbj} ], true, [], [], false );
 				title(sbj{iSbj});
 
 				figure(nHRate);
@@ -156,20 +156,29 @@ classdef BlinkTransient < handle
 		end
 			
 
-		function main20180817( folder )
+		function main20180923( folder )
 			%% remove trials with gabor amplitude less than 0.3 
 
 			if( folder(end) == '/' || folder(end) == '\' ) folder(end) = []; end
 
+			if( exist( folder, 'dir' ) ~= 7 ) mkdir(folder); end
+
 			sbj = { 'A034', 'A038', 'A074', 'A082', 'A088' };
-			groups = { {1:3, 4:7, 8:11},...
+			groups = { {1:3, 4:7, 8:11, 12:15, 16:19, 20:23},...
 					   {1:2, 3:6},...
 					   {1:3, 4:7, 8:10},...
-					   {1:3, 4:6, 7:8, 10:11, 12:14, 15:17, 18:20, 21:22, 23:25, 26:28},...
-					   {1, 2:4} };
+					   {1:3, 4:6, 7:8, 10:11, 12:14, 15:17, 18:20, 21:22, 23:25, 26:28, 29:32, 33:36, 37:40, 41:44, 45:48},...
+					   {1, 2:4, 5:8} };
 
 			set( figure, 'NumberTitle', 'off', 'name', 'BlinkRT' );
 			nHRT = get( gcf, 'number' );
+			pause(0.1);
+			jf = get(handle(gcf),'javaframe');
+		 	jf.setMaximized(1);
+		 	pause(0.5);
+
+		 	set( figure, 'NumberTitle', 'off', 'name', 'BlinkAlign2Plateau' );
+			nHB2P = get( gcf, 'number' );
 			pause(0.1);
 			jf = get(handle(gcf),'javaframe');
 		 	jf.setMaximized(1);
@@ -188,118 +197,230 @@ classdef BlinkTransient < handle
 			jf = get(handle(gcf),'javaframe');
 		 	jf.setMaximized(1);
 		 	pause(0.5);
+
+		 	set( figure, 'NumberTitle', 'off', 'name', 'Compare Fixational saccade rate' );
+			nHRateBars = get( gcf, 'number' );
+			pause(0.1);
+			jf = get(handle(gcf),'javaframe');
+		 	jf.setMaximized(1);
+		 	pause(0.5);
 			
 			for( iSbj = 1 : size(sbj,2) )
 				figure(nHRT);
 				subplot( 2, 3, iSbj );
-				BlinkTransient.BlinkRT( [ 'F:\BlinkTransient\', sbj{iSbj} ], true, [], false );
+				BlinkTransient.BlinkRT( [ 'F:\BlinkTransient\', sbj{iSbj} ], [], true, [], false );
+				title(sbj{iSbj});
+
+				figure(nHB2P);
+				subplot( 2, 3, iSbj );
+				BlinkTransient.BlinkRT( [ 'F:\BlinkTransient\', sbj{iSbj} ], 'tPlateauOn', true, [], false );
 				title(sbj{iSbj});
 
 				figure(nHAmp);
 				subplot( 2, 3, iSbj );
-				BlinkTransient.FixSacAmp( [ 'F:\BlinkTransient\', sbj{iSbj} ], true, [], false );
+				BlinkTransient.FixSacAmp( [ 'F:\BlinkTransient\', sbj{iSbj} ], true, [], [], false );
 				title(sbj{iSbj});
 
 				figure(nHRate);
 				subplot( 2, 3, iSbj );
-				BlinkTransient.SaccadesRate( [ 'F:\BlinkTransient\', sbj{iSbj} ], 'PlateauOn', 'Gaussian', 100, true, false );
+				BlinkTransient.CompSaccadesRate( [ 'F:\BlinkTransient\', sbj{iSbj} ], 'PlateauOn', 'Gaussian', 100, true, false );
+				title(sbj{iSbj});
+
+				figure(nHRateBars);
+				subplot( 2, 3, iSbj );
+				BlinkTransient.CompSaccadesRateBars( [ 'F:\BlinkTransient\', sbj{iSbj} ], 'whole', true, false );
 				title(sbj{iSbj});
 			end
 
 			saveas( figure(nHRT), [ folder, '\BlinkRT.fig' ] );
 			saveas( figure(nHRT), [ folder, '\BlinkRT.png' ] );
+			saveas( figure(nHRT), [ folder, '\BlinkRT.eps' ], 'psc2' );
 			pause(1);
 			close(figure(nHRT));
 
+			saveas( figure(nHB2P), [ folder, '\BlinkAlign2Plateau.fig' ] );
+			saveas( figure(nHB2P), [ folder, '\BlinkAlign2Plateau.png' ] );
+			saveas( figure(nHB2P), [ folder, '\BlinkAlign2Plateau.eps' ], 'psc2' );
+			pause(1);
+			close(figure(nHB2P));
+
 			saveas( figure(nHAmp), [ folder, '\FixSacAmp.fig' ] );
 			saveas( figure(nHAmp), [ folder, '\FixSacAmp.png' ] );
+			saveas( figure(nHAmp), [ folder, '\FixSacAmp.eps' ], 'psc2' );
 			pause(1);
 			close(figure(nHAmp));
 
-			saveas( figure(nHRate), [ folder, '\FixSacRate. Aligned to PlateauOn.fig' ] );
-			saveas( figure(nHRate), [ folder, '\FixSacRate. Aligned to PlateauOn.png' ] );
+			saveas( figure(nHRate), [ folder, '\FixSacRate_Aligned2PlateauOn.fig' ] );
+			saveas( figure(nHRate), [ folder, '\FixSacRate_Aligned2PlateauOn.png' ] );
+			saveas( figure(nHRate), [ folder, '\FixSacRate_Aligned2PlateauOn.eps' ], 'psc2' );
 			pause(1);
 			close(figure(nHRate));
 
+			saveas( figure(nHRateBars), [ folder, '\FixSacRate_CompWhole_Bars.fig' ] );
+			saveas( figure(nHRateBars), [ folder, '\FixSacRate_CompWhole_Bars.png' ] );
+			saveas( figure(nHRateBars), [ folder, '\FixSacRate_CompWhole_Bars.eps' ], 'psc2' );
+			pause(1);
+			close(figure(nHRateBars));
+
 			for( iSbj = size(sbj,2) : -1 : 1 )
 				BlinkTransient.BlinkRT( [ 'F:\BlinkTransient\', sbj{iSbj} ] );
-				saveas( gcf, [ folder, '\', sbj{iSbj}, '. BlinkRT.fig' ] );
-				saveas( gcf, [ folder, '\', sbj{iSbj}, '. BlinkRT.png' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_BlinkRT.fig' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_BlinkRT.png' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_BlinkRT.eps' ], 'psc2' );
+				pause(1);
+				close;
+
+				BlinkTransient.BlinkRT( [ 'F:\BlinkTransient\', sbj{iSbj} ], 'tPlateauOn' );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_BlinkAlign2Plateau.fig' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_BlinkAlign2Plateau.png' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_BlinkAlign2Plateau.eps' ], 'psc2' );
 				pause(1);
 				close;
 
 				BlinkTransient.FixSacAmp( [ 'F:\BlinkTransient\', sbj{iSbj} ] );
-				saveas( gcf, [ folder, '\', sbj{iSbj}, '. FixSacAmp.fig' ] );
-				saveas( gcf, [ folder, '\', sbj{iSbj}, '. FixSacAmp.png' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_FixSacAmp.fig' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_FixSacAmp.png' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_FixSacAmp.eps' ], 'psc2' );
 				pause(1);
 				close;
 
-				BlinkTransient.SaccadesRate( [ 'F:\BlinkTransient\', sbj{iSbj} ], 'PlateauOn', 'Gaussian', 100 );
-				saveas( gcf, [ folder, '\', sbj{iSbj}, '. FixSacRate. Aligned to PlateauOn.fig' ] );
-				saveas( gcf, [ folder, '\', sbj{iSbj}, '. FixSacRate. Aligned to PlateauOn.png' ] );
+				BlinkTransient.CompSaccadesRate( [ 'F:\BlinkTransient\', sbj{iSbj} ], 'PlateauOn', 'Gaussian', 100 );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_FixSacRate_Aligned2PlateauOn.fig' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_FixSacRate_Aligned2PlateauOn.png' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_FixSacRate_Aligned2PlateauOn.eps' ], 'psc2' );
 				pause(1);
 				close;
 
-				BlinkTransient.BlinkEffect( [ 'F:\BlinkTransient\', sbj{iSbj} ], { groups{iSbj}{:}, [ groups{iSbj}{:} ] }, 0, 0, 1 );
-				title( 'All Sessions' );
+				BlinkTransient.CompSaccadesRateBars( [ 'F:\BlinkTransient\', sbj{iSbj} ], 'whole' );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_FixSacRate_CompWhole_Bars.fig' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_FixSacRate_CompWhole_Bars.png' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_FixSacRate_CompWhole_Bars.eps' ], 'psc2' );
+				pause(1);
+				close;
+
+				% continue;
+
+				% BlinkTransient.BlinkEffect( [ 'F:\BlinkTransient\', sbj{iSbj} ], { groups{iSbj}{:}, [ groups{iSbj}{:} ] }, 0, 0, 1 );
+				BlinkTransient.BlinkEffect( [ 'F:\BlinkTransient\', sbj{iSbj} ], { [ groups{iSbj}{:} ] }, 0, 0, 1 );
+				h = get( gcf, 'children' );
+				index = 1;
+				nMax = 0;
+				for( i = 1 : size(h,1) )
+					if( strcmpi( class(h(i)), 'matlab.graphics.axis.axes' ) )
+						nBlocks = sum( h(i).Title.String == '|' ) + 1;
+						if( nMax < nBlocks )
+							index = i;
+							nMax = nBlocks;
+						end
+						h(i).Title.String = [ h(i).Title.String(1:8), ': ', num2str(nBlocks), ' blocks' ];
+					end
+				end
+				h(index).Title.String = ['All sessions: ', num2str(nMax), ' blocks'];
 				pause(0.1);
 				jf = get(handle(gcf),'javaframe');
 			 	jf.setMaximized(1);
 			 	pause(0.5);
-				saveas( gcf, [ folder, '\', sbj{iSbj}, '. OverallCurve.fig' ] );
-				saveas( gcf, [ folder, '\', sbj{iSbj}, '. OverallCurve.png' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_OverallCurve.fig' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_OverallCurve.png' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_OverallCurve.eps' ], 'psc2' );
 				pause(0.5);
 				close;
 
-				BlinkTransient.BlinkEffect( [ 'F:\BlinkTransient\', sbj{iSbj} ], { groups{iSbj}{:}, [ groups{iSbj}{:} ] }, 1, 1, 0, 0.3 );
-				title( 'All Sessions' );
+				% BlinkTransient.BlinkEffect( [ 'F:\BlinkTransient\', sbj{iSbj} ], { groups{iSbj}{:}, [ groups{iSbj}{:} ] }, 1, 1, 0, 0.3 );
+				BlinkTransient.BlinkEffect( [ 'F:\BlinkTransient\', sbj{iSbj} ], { [ groups{iSbj}{:} ] }, 1, 1, 0, 0.3 );
+				h = get( gcf, 'children' );
+				index = 1;
+				nMax = 0;
+				for( i = 1 : size(h,1) )
+					if( strcmpi( class(h(i)), 'matlab.graphics.axis.axes' ) )
+						nBlocks = sum( h(i).Title.String == '|' ) + 1;
+						if( nMax < nBlocks )
+							index = i;
+							nMax = nBlocks;
+						end
+						h(i).Title.String = [ h(i).Title.String(1:8), ': ', num2str(nBlocks), ' blocks' ];
+					end
+				end
+				h(index).Title.String = ['All sessions: ', num2str(nMax), ' blocks'];
 				pause(0.1);
 				jf = get(handle(gcf),'javaframe');
 			 	jf.setMaximized(1);
 			 	pause(0.5);
-				saveas( gcf, [ folder, '\', sbj{iSbj}, '. CompCurves.fig' ] );
-				saveas( gcf, [ folder, '\', sbj{iSbj}, '. CompCurves.png' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_CompCurves.fig' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_CompCurves.png' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_CompCurves.eps' ], 'psc2' );
 				pause(0.5);
 				close;
 
-				BlinkTransient.BlinkEffect( [ 'F:\BlinkTransient\', sbj{iSbj} ], { groups{iSbj}{:}, [ groups{iSbj}{:} ] }, 0, 1, 0, 0.3 );
-				title( 'All Sessions' );
+				% BlinkTransient.BlinkEffect( [ 'F:\BlinkTransient\', sbj{iSbj} ], { groups{iSbj}{:}, [ groups{iSbj}{:} ] }, 0, 1, 0, 0.3 );
+				BlinkTransient.BlinkEffect( [ 'F:\BlinkTransient\', sbj{iSbj} ], { [ groups{iSbj}{:} ] }, 0, 1, 0, 0.3 );
+				h = get( gcf, 'children' );
+				index = 1;
+				nMax = 0;
+				for( i = 1 : size(h,1) )
+					if( strcmpi( class(h(i)), 'matlab.graphics.axis.axes' ) )
+						nBlocks = sum( h(i).Title.String == '|' ) + 1;
+						if( nMax < nBlocks )
+							index = i;
+							nMax = nBlocks;
+						end
+						h(i).Title.String = [ h(i).Title.String(1:8), ': ', num2str(nBlocks), ' blocks' ];
+					end
+				end
+				h(index).Title.String = ['All sessions: ', num2str(nMax), ' blocks'];
 				pause(0.1);
 				jf = get(handle(gcf),'javaframe');
 			 	jf.setMaximized(1);
 			 	pause(0.5);
-				saveas( gcf, [ folder, '\', sbj{iSbj}, '. CompCurves. withMicrosacs.fig' ] );
-				saveas( gcf, [ folder, '\', sbj{iSbj}, '. CompCurves. withMicrosacs.png' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_CompCurves_withMicrosacs.fig' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_CompCurves_withMicrosacs.png' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_CompCurves_withMicrosacs.eps' ], 'psc2' );
 				pause(0.5);
 				close;
 
-				BlinkTransient.BlinkEffect( [ 'F:\BlinkTransient\', sbj{iSbj} ], { groups{iSbj}{:}, [ groups{iSbj}{:} ] }, 0, 0, 0, 0.3 );
-				title( 'All Sessions' );
+				% BlinkTransient.BlinkEffect( [ 'F:\BlinkTransient\', sbj{iSbj} ], { groups{iSbj}{:}, [ groups{iSbj}{:} ] }, 0, 0, 0, 0.3 );
+				BlinkTransient.BlinkEffect( [ 'F:\BlinkTransient\', sbj{iSbj} ], { [ groups{iSbj}{:} ] }, 0, 0, 0, 0.3 );
+				h = get( gcf, 'children' );
+				index = 1;
+				nMax = 0;
+				for( i = 1 : size(h,1) )
+					if( strcmpi( class(h(i)), 'matlab.graphics.axis.axes' ) )
+						nBlocks = sum( h(i).Title.String == '|' ) + 1;
+						if( nMax < nBlocks )
+							index = i;
+							nMax = nBlocks;
+						end
+						h(i).Title.String = [ h(i).Title.String(1:8), ': ', num2str(nBlocks), ' blocks' ];
+					end
+				end
+				h(index).Title.String = ['All sessions: ', num2str(nMax), ' blocks'];
 				pause(0.1);
 				jf = get(handle(gcf),'javaframe');
 			 	jf.setMaximized(1);
 			 	pause(0.5);
-				saveas( gcf, [ folder, '\', sbj{iSbj}, '. CompCurves. withAllSacs.fig' ] );
-				saveas( gcf, [ folder, '\', sbj{iSbj}, '. CompCurves. withAllSacs.png' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_CompCurves_withAllSacs.fig' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_CompCurves_withAllSacs.png' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_CompCurves_withAllSacs.eps' ], 'psc2' );
 				pause(0.5);
 				close;
 
 				data = BlinkTransient.GetData4Blinks( [ 'F:\BlinkTransient\', sbj{iSbj} ], 0, 0 );
-				trialsWithBlink = [data.trialsWithBlink];
-				trialsWithoutBlink = [data.trialsWithoutBlink];
+				trialsWithBlink = [data([groups{iSbj}{:}]).trialsWithBlink];
+				trialsWithoutBlink = [data([groups{iSbj}{:}]).trialsWithoutBlink];
 				nOverall(iSbj).withBlink = size( [ trialsWithBlink( [trialsWithBlink.gaborAmp] >= 0.3 ) ], 2 );
 				nOverall(iSbj).withoutBlink = size( [ trialsWithoutBlink( [trialsWithoutBlink.gaborAmp] >= 0.3 ) ], 2 );
 				data = BlinkTransient.GetData4Blinks( [ 'F:\BlinkTransient\', sbj{iSbj} ], 0, 1 );
-				trialsWithBlink = [data.trialsWithBlink];
-				trialsWithoutBlink = [data.trialsWithoutBlink];
+				trialsWithBlink = [data([groups{iSbj}{:}]).trialsWithBlink];
+				trialsWithoutBlink = [data([groups{iSbj}{:}]).trialsWithoutBlink];
 				nWithMicrosacs(iSbj).withBlink = size( [ trialsWithBlink( [trialsWithBlink.gaborAmp] >= 0.3 ) ], 2 );
 				nWithMicrosacs(iSbj).withoutBlink = size( [ trialsWithoutBlink( [trialsWithoutBlink.gaborAmp] >= 0.3 ) ], 2 );
 				data = BlinkTransient.GetData4Blinks( [ 'F:\BlinkTransient\', sbj{iSbj} ], 1, 1 );
-				trialsWithBlink = [data.trialsWithBlink];
-				trialsWithoutBlink = [data.trialsWithoutBlink];
+				trialsWithBlink = [data([groups{iSbj}{:}]).trialsWithBlink];
+				trialsWithoutBlink = [data([groups{iSbj}{:}]).trialsWithoutBlink];
 				nDriftOnly(iSbj).withBlink = size( [ trialsWithBlink( [trialsWithBlink.gaborAmp] >= 0.3 ) ], 2 );
 				nDriftOnly(iSbj).withoutBlink = size( [ trialsWithoutBlink( [trialsWithoutBlink.gaborAmp] >= 0.3 ) ], 2 );
 			end
+			% return;
 
 			set( figure, 'NumberTitle', 'off', 'name', 'nTrials Table', 'color', 'w' );
 			pause(0.1);
@@ -315,11 +436,464 @@ classdef BlinkTransient < handle
 			jf = get(handle(gcf),'javaframe');
 		 	jf.setMaximized(1);
 		 	pause(0.5);
-			saveas( gcf, [ folder, '/nTrials. Table.fig' ] );
-			saveas( gcf, [ folder, '/nTrials. Table.png' ] );
+			saveas( gcf, [ folder, '/nTrials_Table.fig' ] );
+			saveas( gcf, [ folder, '/nTrials_Table.png' ] );
+			saveas( gcf, [ folder, '/nTrials_Table.eps' ], 'psc2' );
 			pause(0.5);
 			close;
 		end
+
+
+		function main20180927( folder )
+			%% remove trials with gabor amplitude less than 0.3 
+
+			if( folder(end) == '/' || folder(end) == '\' ) folder(end) = []; end
+
+			if( exist( folder, 'dir' ) ~= 7 ) mkdir(folder); end
+
+			sbj = { 'A034', 'A082', 'A088' };
+			nRows = 2;
+			nCols = 2;
+			groups = { {1:3, 4:7, 8:11, 12:15, 16:19, 20:23, 24:28},...
+					   {1:3, 4:6, 7:8, 10:11, 12:14, 15:17, 18:20, 21:22, 23:25, 26:28, 29:32, 33:36, 37:40, 41:44, 45:48},...
+					   {1, 2:4, 5:8} };
+
+			set( figure, 'NumberTitle', 'off', 'name', 'BlinkRT' );
+			nHRT = get( gcf, 'number' );
+			pause(0.1);
+			jf = get(handle(gcf),'javaframe');
+		 	jf.setMaximized(1);
+		 	pause(0.5);
+
+		 	set( figure, 'NumberTitle', 'off', 'name', 'BlinkAlign2Plateau' );
+			nHB2P = get( gcf, 'number' );
+			pause(0.1);
+			jf = get(handle(gcf),'javaframe');
+		 	jf.setMaximized(1);
+		 	pause(0.5);
+
+			set( figure, 'NumberTitle', 'off', 'name', 'Fixational saccade amplitude' );
+			nHAmp = get( gcf, 'number' );
+			pause(0.1);
+			jf = get(handle(gcf),'javaframe');
+		 	jf.setMaximized(1);
+		 	pause(0.5);
+
+		 	set( figure, 'NumberTitle', 'off', 'name', ['Fixational saccade rate aligned to ', 'PlateauOn' ] );
+			nHRate = get( gcf, 'number' );
+			pause(0.1);
+			jf = get(handle(gcf),'javaframe');
+		 	jf.setMaximized(1);
+		 	pause(0.5);
+
+		 	set( figure, 'NumberTitle', 'off', 'name', 'Compare Fixational saccade rate' );
+			nHRateBars = get( gcf, 'number' );
+			pause(0.1);
+			jf = get(handle(gcf),'javaframe');
+		 	jf.setMaximized(1);
+		 	pause(0.5);
+			
+			for( iSbj = 1 : size(sbj,2) )
+				figure(nHRT);
+				subplot( nRows, nCols, iSbj );
+				BlinkTransient.BlinkRT( [ 'F:\BlinkTransient\', sbj{iSbj} ], [], true, [], false );
+				title(sbj{iSbj});
+
+				figure(nHB2P);
+				subplot( nRows, nCols, iSbj );
+				BlinkTransient.BlinkRT( [ 'F:\BlinkTransient\', sbj{iSbj} ], 'tPlateauOn', true, [], false );
+				title(sbj{iSbj});
+
+				figure(nHAmp);
+				subplot( nRows, nCols, iSbj );
+				BlinkTransient.FixSacAmp( [ 'F:\BlinkTransient\', sbj{iSbj} ], true, [], [], false );
+				title(sbj{iSbj});
+
+				figure(nHRate);
+				subplot( nRows, nCols, iSbj );
+				BlinkTransient.CompSaccadesRate( [ 'F:\BlinkTransient\', sbj{iSbj} ], 'PlateauOn', 'Gaussian', 100, true, false );
+				title(sbj{iSbj});
+
+				figure(nHRateBars);
+				subplot( nRows, nCols, iSbj );
+				BlinkTransient.CompSaccadesRateBars( [ 'F:\BlinkTransient\', sbj{iSbj} ], 'whole', true, false );
+				title(sbj{iSbj});
+			end
+
+			saveas( figure(nHRT), [ folder, '\BlinkRT.fig' ] );
+			saveas( figure(nHRT), [ folder, '\BlinkRT.png' ] );
+			saveas( figure(nHRT), [ folder, '\BlinkRT.eps' ], 'psc2' );
+			pause(1);
+			close(figure(nHRT));
+
+			saveas( figure(nHB2P), [ folder, '\BlinkAlign2Plateau.fig' ] );
+			saveas( figure(nHB2P), [ folder, '\BlinkAlign2Plateau.png' ] );
+			saveas( figure(nHB2P), [ folder, '\BlinkAlign2Plateau.eps' ], 'psc2' );
+			pause(1);
+			close(figure(nHB2P));
+
+			saveas( figure(nHAmp), [ folder, '\FixSacAmp.fig' ] );
+			saveas( figure(nHAmp), [ folder, '\FixSacAmp.png' ] );
+			saveas( figure(nHAmp), [ folder, '\FixSacAmp.eps' ], 'psc2' );
+			pause(1);
+			close(figure(nHAmp));
+
+			saveas( figure(nHRate), [ folder, '\FixSacRate_Aligned2PlateauOn.fig' ] );
+			saveas( figure(nHRate), [ folder, '\FixSacRate_Aligned2PlateauOn.png' ] );
+			saveas( figure(nHRate), [ folder, '\FixSacRate_Aligned2PlateauOn.eps' ], 'psc2' );
+			pause(1);
+			close(figure(nHRate));
+
+			saveas( figure(nHRateBars), [ folder, '\FixSacRate_CompWhole_Bars.fig' ] );
+			saveas( figure(nHRateBars), [ folder, '\FixSacRate_CompWhole_Bars.png' ] );
+			saveas( figure(nHRateBars), [ folder, '\FixSacRate_CompWhole_Bars.eps' ], 'psc2' );
+			pause(1);
+			close(figure(nHRateBars));
+
+			for( iSbj = size(sbj,2) : -1 : 1 )
+				BlinkTransient.BlinkRT( [ 'F:\BlinkTransient\', sbj{iSbj} ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_BlinkRT.fig' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_BlinkRT.png' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_BlinkRT.eps' ], 'psc2' );
+				pause(1);
+				close;
+
+				BlinkTransient.BlinkRT( [ 'F:\BlinkTransient\', sbj{iSbj} ], 'tPlateauOn' );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_BlinkAlign2Plateau.fig' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_BlinkAlign2Plateau.png' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_BlinkAlign2Plateau.eps' ], 'psc2' );
+				pause(1);
+				close;
+
+				BlinkTransient.FixSacAmp( [ 'F:\BlinkTransient\', sbj{iSbj} ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_FixSacAmp.fig' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_FixSacAmp.png' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_FixSacAmp.eps' ], 'psc2' );
+				pause(1);
+				close;
+
+				BlinkTransient.CompSaccadesRate( [ 'F:\BlinkTransient\', sbj{iSbj} ], 'PlateauOn', 'Gaussian', 100 );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_FixSacRate_Aligned2PlateauOn.fig' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_FixSacRate_Aligned2PlateauOn.png' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_FixSacRate_Aligned2PlateauOn.eps' ], 'psc2' );
+				pause(1);
+				close;
+
+				BlinkTransient.CompSaccadesRateBars( [ 'F:\BlinkTransient\', sbj{iSbj} ], 'whole' );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_FixSacRate_CompWhole_Bars.fig' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_FixSacRate_CompWhole_Bars.png' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_FixSacRate_CompWhole_Bars.eps' ], 'psc2' );
+				pause(1);
+				close;
+
+				continue;
+
+				% BlinkTransient.BlinkEffect( [ 'F:\BlinkTransient\', sbj{iSbj} ], { groups{iSbj}{:}, [ groups{iSbj}{:} ] }, 0, 0, 1 );
+				BlinkTransient.BlinkEffect( [ 'F:\BlinkTransient\', sbj{iSbj} ], { [ groups{iSbj}{:} ] }, 0, 0, 1 );
+				h = get( gcf, 'children' );
+				index = 1;
+				nMax = 0;
+				for( i = 1 : size(h,1) )
+					if( strcmpi( class(h(i)), 'matlab.graphics.axis.axes' ) )
+						nBlocks = sum( h(i).Title.String == '|' ) + 1;
+						if( nMax < nBlocks )
+							index = i;
+							nMax = nBlocks;
+						end
+						h(i).Title.String = [ h(i).Title.String(1:8), ': ', num2str(nBlocks), ' blocks' ];
+					end
+				end
+				h(index).Title.String = ['All sessions: ', num2str(nMax), ' blocks'];
+				pause(0.1);
+				jf = get(handle(gcf),'javaframe');
+			 	jf.setMaximized(1);
+			 	pause(0.5);
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_OverallCurve.fig' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_OverallCurve.png' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_OverallCurve.eps' ], 'psc2' );
+				pause(0.5);
+				close;
+
+				% BlinkTransient.BlinkEffect( [ 'F:\BlinkTransient\', sbj{iSbj} ], { groups{iSbj}{:}, [ groups{iSbj}{:} ] }, 1, 1, 0, 0.3 );
+				BlinkTransient.BlinkEffect( [ 'F:\BlinkTransient\', sbj{iSbj} ], { [ groups{iSbj}{:} ] }, 1, 1, 0, 0.3 );
+				h = get( gcf, 'children' );
+				index = 1;
+				nMax = 0;
+				for( i = 1 : size(h,1) )
+					if( strcmpi( class(h(i)), 'matlab.graphics.axis.axes' ) )
+						nBlocks = sum( h(i).Title.String == '|' ) + 1;
+						if( nMax < nBlocks )
+							index = i;
+							nMax = nBlocks;
+						end
+						h(i).Title.String = [ h(i).Title.String(1:8), ': ', num2str(nBlocks), ' blocks' ];
+					end
+				end
+				h(index).Title.String = ['All sessions: ', num2str(nMax), ' blocks'];
+				pause(0.1);
+				jf = get(handle(gcf),'javaframe');
+			 	jf.setMaximized(1);
+			 	pause(0.5);
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_CompCurves.fig' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_CompCurves.png' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_CompCurves.eps' ], 'psc2' );
+				pause(0.5);
+				close;
+
+				% BlinkTransient.BlinkEffect( [ 'F:\BlinkTransient\', sbj{iSbj} ], { groups{iSbj}{:}, [ groups{iSbj}{:} ] }, 0, 1, 0, 0.3 );
+				BlinkTransient.BlinkEffect( [ 'F:\BlinkTransient\', sbj{iSbj} ], { [ groups{iSbj}{:} ] }, 0, 1, 0, 0.3 );
+				h = get( gcf, 'children' );
+				index = 1;
+				nMax = 0;
+				for( i = 1 : size(h,1) )
+					if( strcmpi( class(h(i)), 'matlab.graphics.axis.axes' ) )
+						nBlocks = sum( h(i).Title.String == '|' ) + 1;
+						if( nMax < nBlocks )
+							index = i;
+							nMax = nBlocks;
+						end
+						h(i).Title.String = [ h(i).Title.String(1:8), ': ', num2str(nBlocks), ' blocks' ];
+					end
+				end
+				h(index).Title.String = ['All sessions: ', num2str(nMax), ' blocks'];
+				pause(0.1);
+				jf = get(handle(gcf),'javaframe');
+			 	jf.setMaximized(1);
+			 	pause(0.5);
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_CompCurves_withMicrosacs.fig' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_CompCurves_withMicrosacs.png' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_CompCurves_withMicrosacs.eps' ], 'psc2' );
+				pause(0.5);
+				close;
+
+				% BlinkTransient.BlinkEffect( [ 'F:\BlinkTransient\', sbj{iSbj} ], { groups{iSbj}{:}, [ groups{iSbj}{:} ] }, 0, 0, 0, 0.3 );
+				BlinkTransient.BlinkEffect( [ 'F:\BlinkTransient\', sbj{iSbj} ], { [ groups{iSbj}{:} ] }, 0, 0, 0, 0.3 );
+				h = get( gcf, 'children' );
+				index = 1;
+				nMax = 0;
+				for( i = 1 : size(h,1) )
+					if( strcmpi( class(h(i)), 'matlab.graphics.axis.axes' ) )
+						nBlocks = sum( h(i).Title.String == '|' ) + 1;
+						if( nMax < nBlocks )
+							index = i;
+							nMax = nBlocks;
+						end
+						h(i).Title.String = [ h(i).Title.String(1:8), ': ', num2str(nBlocks), ' blocks' ];
+					end
+				end
+				h(index).Title.String = ['All sessions: ', num2str(nMax), ' blocks'];
+				pause(0.1);
+				jf = get(handle(gcf),'javaframe');
+			 	jf.setMaximized(1);
+			 	pause(0.5);
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_CompCurves_withAllSacs.fig' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_CompCurves_withAllSacs.png' ] );
+				saveas( gcf, [ folder, '\', sbj{iSbj}, '_CompCurves_withAllSacs.eps' ], 'psc2' );
+				pause(0.5);
+				close;
+
+				data = BlinkTransient.GetData4Blinks( [ 'F:\BlinkTransient\', sbj{iSbj} ], 0, 0 );
+				trialsWithBlink = [data([groups{iSbj}{:}]).trialsWithBlink];
+				trialsWithoutBlink = [data([groups{iSbj}{:}]).trialsWithoutBlink];
+				nOverall(iSbj).withBlink = size( [ trialsWithBlink( [trialsWithBlink.gaborAmp] >= 0.3 ) ], 2 );
+				nOverall(iSbj).withoutBlink = size( [ trialsWithoutBlink( [trialsWithoutBlink.gaborAmp] >= 0.3 ) ], 2 );
+				data = BlinkTransient.GetData4Blinks( [ 'F:\BlinkTransient\', sbj{iSbj} ], 0, 1 );
+				trialsWithBlink = [data([groups{iSbj}{:}]).trialsWithBlink];
+				trialsWithoutBlink = [data([groups{iSbj}{:}]).trialsWithoutBlink];
+				nWithMicrosacs(iSbj).withBlink = size( [ trialsWithBlink( [trialsWithBlink.gaborAmp] >= 0.3 ) ], 2 );
+				nWithMicrosacs(iSbj).withoutBlink = size( [ trialsWithoutBlink( [trialsWithoutBlink.gaborAmp] >= 0.3 ) ], 2 );
+				data = BlinkTransient.GetData4Blinks( [ 'F:\BlinkTransient\', sbj{iSbj} ], 1, 1 );
+				trialsWithBlink = [data([groups{iSbj}{:}]).trialsWithBlink];
+				trialsWithoutBlink = [data([groups{iSbj}{:}]).trialsWithoutBlink];
+				nDriftOnly(iSbj).withBlink = size( [ trialsWithBlink( [trialsWithBlink.gaborAmp] >= 0.3 ) ], 2 );
+				nDriftOnly(iSbj).withoutBlink = size( [ trialsWithoutBlink( [trialsWithoutBlink.gaborAmp] >= 0.3 ) ], 2 );
+			end
+			return;
+
+			set( figure, 'NumberTitle', 'off', 'name', 'nTrials Table', 'color', 'w' );
+			pause(0.1);
+			jf = get(handle(gcf),'javaframe');
+		 	jf.setMaximized(1);
+		 	pause(0.5);
+			uitable( 'units', 'normalized', 'Position',[.1 .1 .8 .8], 'BackgroundColor', [1 1 1], 'FontName', 'TimesNewRoman', 'FontSize', 15, 'ColumnWidth', num2cell(145*ones(1,7)),...
+				'Data', [ nOverall.withBlink; nOverall.withoutBlink; nWithMicrosacs.withBlink; nWithMicrosacs.withoutBlink; nDriftOnly.withBlink; nDriftOnly.withoutBlink ]',...
+				'RowName', sbj,...
+				'ColumnName', { 'Overall.yes', 'Overall.no', 'WithMicrosacs.yes', 'WithMicrosacs.no', 'DriftOnly.yes', 'DriftOnly.no' } );
+			title( 'nTrials Table' );
+			pause(0.1);
+			jf = get(handle(gcf),'javaframe');
+		 	jf.setMaximized(1);
+		 	pause(0.5);
+			saveas( gcf, [ folder, '/nTrials_Table.fig' ] );
+			saveas( gcf, [ folder, '/nTrials_Table.png' ] );
+			saveas( gcf, [ folder, '/nTrials_Table.eps' ], 'psc2' );
+			pause(0.5);
+			close;
+		end
+
+
+		function rates = CompSaccadesRate( sbjFolder, alignment, smooth, window, isPlot, isNewFigure )
+			%% alignment:					event to align the rates; by default, aligned to the time point of the first recorded eye position
+			%  window:						sliding window size (ms)
+			%  smooth:						'gaussian', 'square', 'raw'
+			%  rates:						1x3 structure array for "microsaccades" and "saccades" rate distributions
+			%    rates.rate.microsaccades:	rate for microsaccades (Hz)
+			%	 rates.rate.saccades:		rate for large saccades (Hz)
+			%    rates.tTicks:				timeline for rates.rate (ms)
+			%    rates.nTrials: 			number of trials used
+
+			if( nargin() < 2 || isempty(alignment) ) alignment = 'startTrial'; end
+			if( nargin() < 3 || isempty(smooth) ) smooth = 'raw'; end
+			if( nargin() < 4 || isempty(window) ) window = 10; end
+            if( nargin() < 5 || isempty(isPlot) ) isPlot = true; end
+			if( nargin() < 6 || isempty(isNewFigure) ) isNewFigure = true; end
+
+			if( sbjFolder(end) == '/' || sbjFolder(end) == '\' ) sbjFolder(end) = []; end
+
+			for( i = 3:-1:1 )
+				rates(i).rate = [];
+				rates(i).tTicks = [];
+				rates(i).nTrials = 0;
+			end
+
+			list = dir(sbjFolder);
+			for( i = 1 : size(list,1) )
+				if( list(i).isdir() )
+					if( strcmp( list(i).name, '.' ) || strcmp( list(i).name, '..' ) || strcmpi( list(i).name(1:4), 'demo' ) || strcmpi( list(i).name(1:3), 'X. ' ) || strcmpi( list(i).name, 'calibration') )
+						continue;
+					elseif( str2num(list(i).name(1:8)) < 20180816 )	% fix dot not visible during stimulus
+						rates(1) = BlinkTransient.SaccadesRateAdd( rates(1), BlinkTransient.SaccadesRate( fullfile(sbjFolder, list(i).name), alignment, smooth, window, 0 ) );
+					elseif( str2num(list(i).name(1:8)) < 20180920 )		% fix dot visible during stimulus
+						rates(2) = BlinkTransient.SaccadesRateAdd( rates(2), BlinkTransient.SaccadesRate( fullfile(sbjFolder, list(i).name), alignment, smooth, window, 0 ) );
+					else 	% fix dot visible during stimulus, and fix window visible as 4 arcs
+						rates(3) = BlinkTransient.SaccadesRateAdd( rates(3), BlinkTransient.SaccadesRate( fullfile(sbjFolder, list(i).name), alignment, smooth, window, 0 ) );
+					end
+				end
+			end
+
+			if(isPlot)
+				if(isNewFigure)
+					set( figure, 'NumberTitle', 'off', 'name', [sbjFolder(end-3:end), ' | Compare SaccadesRate'], 'color', 'w' );
+				end
+				hold on;
+				LineStyles = {'-','--',':'};
+				names = { 'NoFixDot', 'WithFixDot', 'With4Arcs' };
+				for( i = 3 : -1 : 1 )
+					if( rates(i).nTrials > 0 )
+						h(i*3) = plot( rates(i).tTicks, rates(i).rate.microsaccades + rates(i).rate.saccades, 'k', 'LineStyle', LineStyles{i}, 'LineWidth', 2, 'DisplayName', 'overall' );
+						h(i*3-2) = plot( rates(i).tTicks, rates(i).rate.microsaccades, 'r', 'LineStyle', LineStyles{i}, 'LineWidth', 2, 'DisplayName', ['Microsaccades ', names{i}] );
+						h(i*3-1) = plot( rates(i).tTicks, rates(i).rate.saccades, 'b', 'LineStyle', LineStyles{i}, 'LineWidth', 2, 'DisplayName', ['Saccades ', names{i}] );
+					end
+				end
+				legend( [ h(1:3:end), h(2:3:end), h(3:3:end) ] );
+				set( gca, 'box', 'off', 'LineWidth', 2, 'FontSize', 20 );
+				xlabel( 'Time (ms)' );
+				ylabel( 'Rates (Hz)' );
+				title( [ sbjFolder(end-3:end), ' | Aligned to ', alignment ] );
+			end
+		end
+
+
+		function rates = CompSaccadesRateBars( sbjFolder, period, isPlot, isNewFigure )
+			%% period:						which period to analyze: ramp, plateau, whole (stimulus)
+			%  rates:						1x3 structure array for "microsaccades" and "saccades" rate samples (one sample from each block)
+			%    rates.microsaccades:		rate for microsaccades (Hz)
+			%	 rates.saccades:			rate for large saccades (Hz)
+
+			if( nargin() < 2 || isempty(period) ) period = 'whole'; end
+            if( nargin() < 3 || isempty(isPlot) ) isPlot = true; end
+			if( nargin() < 4 || isempty(isNewFigure) ) isNewFigure = true; end
+
+			if( sbjFolder(end) == '/' || sbjFolder(end) == '\' ) sbjFolder(end) = []; end
+
+			for( i = 5:-1:1 )
+				rates(i).microsaccades = [];
+				rates(i).saccades = [];
+			end
+
+			list = dir(sbjFolder);
+			for( i = 1 : size(list,1) )
+				if( list(i).isdir() )
+					if( strcmp( list(i).name, '.' ) || strcmp( list(i).name, '..' ) || strcmpi( list(i).name(1:4), 'demo' ) || strcmpi( list(i).name(1:3), 'X. ' ) || strcmpi( list(i).name, 'calibration') )
+						continue;
+
+					else
+						load( fullfile(sbjFolder, list(i).name, 'Trials.mat'), 'Trials' );
+						Trials( [Trials.trialType] ~= 'c' & [Trials.trialType] ~= 'e' ) = [];
+						microsaccades = [Trials.microsaccades];
+						saccades = [Trials.saccades];
+
+						for( iTrial = 1 : size(Trials,2) )
+							switch(lower(period))
+								case 'ramp'
+									microsaccades(iTrial).start( microsaccades(iTrial).start < Trials(iTrial).tRampOn - Trials(iTrial).tTrialStart | Trials(iTrial).tPlateauOn - Trials(iTrial).tTrialStart < microsaccades(iTrial).start ) = [];
+									saccades(iTrial).start( saccades(iTrial).start < Trials(iTrial).tRampOn - Trials(iTrial).tTrialStart | Trials(iTrial).tPlateauOn - Trials(iTrial).tTrialStart < saccades(iTrial).start ) = [];
+								case 'plateau'
+									microsaccades(iTrial).start( microsaccades(iTrial).start < Trials(iTrial).tPlateauOn - Trials(iTrial).tTrialStart | Trials(iTrial).tMaskOn - Trials(iTrial).tTrialStart < microsaccades(iTrial).start ) = [];
+									saccades(iTrial).start( saccades(iTrial).start < Trials(iTrial).tPlateauOn - Trials(iTrial).tTrialStart | Trials(iTrial).tMaskOn - Trials(iTrial).tTrialStart < saccades(iTrial).start ) = [];
+								otherwise
+									microsaccades(iTrial).start( microsaccades(iTrial).start < Trials(iTrial).tRampOn - Trials(iTrial).tTrialStart | Trials(iTrial).tMaskOn - Trials(iTrial).tTrialStart < microsaccades(iTrial).start ) = [];
+									saccades(iTrial).start( saccades(iTrial).start < Trials(iTrial).tRampOn - Trials(iTrial).tTrialStart | Trials(iTrial).tMaskOn - Trials(iTrial).tTrialStart < saccades(iTrial).start ) = [];
+							end
+						end
+						
+						switch(period)
+							case 'ramp'
+								duration = (Trials(1).tPlateauOn - Trials(1).tRampOn) / 1000;
+							case 'plateau'
+								duration = (Trials(1).tMaskOn - Trials(1).tPlateauOn) / 1000;
+							otherwise
+								duration = (Trials(1).tMaskOn - Trials(1).tRampOn) / 1000;
+						end
+
+						microsaccades = size( [microsaccades.start], 2 ) / duration / size(Trials,2);
+						saccades = size( [saccades.start], 2 ) / duration / size(Trials,2);
+
+						if( str2num(list(i).name(1:8)) < 20180816 )	% fix dot not visible during stimulus
+							rates(1).microsaccades(end+1) = microsaccades;
+							rates(1).saccades(end+1) = saccades;
+						elseif( str2num(list(i).name(1:8)) < 20180920 )		% fix dot visible during stimulus
+							rates(2).microsaccades(end+1) = microsaccades;
+							rates(2).saccades(end+1) = saccades;
+						elseif( str2num(list(i).name(1:8)) < 20180926 ) 	% fix dot visible during stimulus, and fix window visible as 4 arcs
+							rates(3).microsaccades(end+1) = microsaccades;
+							rates(3).saccades(end+1) = saccades;
+						elseif( str2num(list(i).name(1:8)) < 20180927 ) 	% tiny fix dot (0.05 deg) visible during fixation, instructed to hold eyes still
+							rates(4).microsaccades(end+1) = microsaccades;
+							rates(4).saccades(end+1) = saccades;
+						else 	% fix dot invisible during stimulus, fix window visible as 4 arcs, instructed to hold eyes still
+							rates(5).microsaccades(end+1) = microsaccades;
+							rates(5).saccades(end+1) = saccades;
+						end
+						
+					end
+				end
+			end
+
+			if(isPlot)
+				if(isNewFigure)
+					set( figure, 'NumberTitle', 'off', 'name', [sbjFolder(end-3:end), ' | Compare SaccadesRate (Bars)'], 'color', 'w' );
+				end
+				hold on;
+				colors = {'r','y','b','m','c'};
+				names = { 'Nothing', 'WithFixDot', 'Dot&4Arcs', 'HoldFixDot', 'Hold4Arcs' };
+				nConds = 0;
+				for( i = 1 : size(names,2) )
+					if( isempty(rates(i).microsaccades) ) continue; end
+					nConds = nConds + 1;
+					data = [rates(i).microsaccades; rates(i).saccades];
+					data(3,:) = data(1,:) + data(2,:);
+					w = size(names,2);
+					h(i) = bar( (0:2)*w + nConds, mean(data,2)', 0.95/w, colors{i}, 'LineStyle', 'none', 'DisplayName', names{i}, 'FaceAlpha', 1 );
+					plot( reshape( [ repmat( (0:2)*w+nConds, 2, 1 ); ones(1,3)*NaN ], 1, [] ), reshape( [std(data,0,2)*[-1,1] + repmat(mean(data,2),1,2), ones(3,1)*NaN]', 1, [] ), 'k', 'LineWidth', 2 );
+				end
+				set( legend(h), 'location', 'NorthWest', 'FontSize', 16 );
+				set( gca, 'XLim', [0 2*w+nConds+1], 'XTick', (0:2)*w+nConds/2+0.5, 'XTickLabel', {'microsac', 'sac', 'overall'}, 'box', 'off', 'LineWidth', 2, 'FontSize', 20 );
+				ylabel( 'Rates (Hz)' );
+				title( [ sbjFolder(end-3:end), ' (', period, ')' ] );
+			end
+		end
+
 
 		function EIS2Mat( folder )
 			if( folder(end) == '\' || folder(end) == '/' ) folder(end) = []; end
@@ -438,7 +1012,7 @@ classdef BlinkTransient < handle
 
 				tAlignEvent = 'tRampOn';
 				tAlignEvent = 'tPlateauOn';
-				tStart = -1500;	% start time relative to tAlignEvent
+				tStart = 0;%-1500;	% start time relative to tAlignEvent
 
 				% tirals only with drifts
 				Data4Blinks(iFolder).sessionName = subfolders( iFolder, find( subfolders(iFolder,:) == '/' | subfolders(iFolder,:) == '\', 1, 'last' ) + 1 : end );
@@ -459,7 +1033,7 @@ classdef BlinkTransient < handle
 				index = false(size(VT));
 				for( i = 1 : size(VT,2) )
 					if( isempty( VT(i).blinks.start ) ||...
-						all( VT(i).(tAlignEvent) + tStart - VT(i).tTrialStart > VT(i).blinks.start + VT(i).blinks.duration | VT(i).blinks.start > VT(i).tMaskOn - VT(i).tTrialStart ) ||...
+						all( VT(i).tPlateauOn + tStart - VT(i).tTrialStart > VT(i).blinks.start + VT(i).blinks.duration | VT(i).blinks.start > VT(i).tMaskOn - VT(i).tTrialStart ) ||...
 						...%~isempty( VT(i).notracks.start ) &&  any( VT(i).(tAlignEvent) + tStart - VT(i).tTrialStart <= VT(i).notracks.start + VT(i).notracks.duration & VT(i).notracks.start <= VT(i).tMaskOn - VT(i).tTrialStart ) ||...
 						discardSaccades && ~isempty( VT(i).saccades.start ) && any( VT(i).(tAlignEvent) + tStart - VT(i).tTrialStart <= VT(i).saccades.start + VT(i).saccades.duration & VT(i).saccades.start <= VT(i).tMaskOn - VT(i).tTrialStart ) ||...
 						discardMicrosaccades && ~isempty( VT(i).microsaccades.start ) && any( VT(i).(tAlignEvent) + tStart - VT(i).tTrialStart <= VT(i).microsaccades.start + VT(i).microsaccades.duration & VT(i).microsaccades.start <= VT(i).tMaskOn - VT(i).tTrialStart ) )
@@ -559,9 +1133,9 @@ classdef BlinkTransient < handle
 			nRows = ceil( size(data,2) / nCols );
 			for( iGroup = 1 : size(data,2) )
 				trials{2} = data(iGroup).trialsWithoutBlink;	% tirals only with drifts
-				trials{2}( [trials{2}.gaborAmp] <= lowestAmp ) = [];
+				trials{2}( [trials{2}.gaborAmp] < lowestAmp ) = [];
 				trials{1} = data(iGroup).trialsWithBlink;		% trials only with blinks
-				trials{1}( [trials{1}.gaborAmp] <= lowestAmp ) = [];
+				trials{1}( [trials{1}.gaborAmp] < lowestAmp ) = [];
 				if( isempty(trials{1}) || isempty(trials{2}) ) continue; end
 
 				bgnLuminance = double(trials{1}(1).bgnLuminance);
@@ -569,7 +1143,7 @@ classdef BlinkTransient < handle
 				subplot( nRows, nCols, iGroup );
 				hold on;
 				colors = {'r', 'b'};
-				names = { 'blink', 'no blink' };
+				names = {'b', 'nb'};%{ 'blink', 'no blink' };
 				hAligns = { 'left', 'right' };	% horizontal alignments
 
 				if(noCompare)
@@ -584,30 +1158,49 @@ classdef BlinkTransient < handle
 					end
 					% amplitudes = [trials{j}.gaborAmp];
 					contrasts = [trials{j}.gaborAmp];
-					% contrasts = BlinkTransient.Intensity2Luminance( [trials{j}.gaborAmp] + bgnLuminance ) / BlinkTransient.Intensity2Luminance(bgnLuminance) - 1;
+					contrasts = BlinkTransient.Intensity2Luminance( [trials{j}.gaborAmp] + bgnLuminance ) / BlinkTransient.Intensity2Luminance(bgnLuminance) - 1;
 					uniConts = unique(contrasts);
 					crctRate(j).rates = zeros(size(trials{j}));
 					crctRate(j).contrasts = zeros(size(trials{j}));
 					crctRate(j).nRates = size(uniConts,2);
-					conWin = 0;%0.3;
+					conWin = 0;%0.0005;%0.3;
 					for( iUni = crctRate(j).nRates : -1 : 1 )
 						index = uniConts(iUni) - conWin/2 <= contrasts & contrasts <= uniConts(iUni) + conWin/2;
 						crctRate(j).rates(iUni) = sum( [trials{j}(index).trialType] == 'c' ) / sum(index);
 						crctRate(j).contrasts(iUni) = uniConts(iUni);
 						text( crctRate(j).contrasts(iUni), crctRate(j).rates(iUni), sprintf('%d', sum(index)), 'HorizontalAlignment', hAligns{j}, 'VerticalAlignment', 'top', 'FontSize', 12, 'color', colors{j} );
 					end
-					h(j) = plot( crctRate(j).contrasts(1:crctRate(j).nRates), crctRate(j).rates(1:crctRate(j).nRates), 'o', 'LineStyle', 'none', 'LineWidth', 2, 'color', colors{j}, 'DisplayName', sprintf( '%s (n=%d)', names{j}, size(trials{j},2) ) );
+					h(j) = plot( crctRate(j).contrasts(1:crctRate(j).nRates), crctRate(j).rates(1:crctRate(j).nRates), 'o', 'LineStyle', 'none', 'LineWidth', 2, 'color', colors{j}, 'DisplayName', sprintf( '%s %d', names{j}, size(trials{j},2) ) );
 
-					[thresh, par] = psyfit( contrasts, [trials{j}.trialType] == 'c', 'Thresh', 0.75, 'Chance', 0.5, 'Lapses', 0, 'Log', 'Extra', 'PlotOff' );
-					x = 0 : 0.001 : max(uniConts)+1;
+					% [thresh, par] = psyfit( contrasts, [trials{j}.trialType] == 'c', 'Thresh', 0.75, 'Chance', 0.5, 'Lapses', 0, 'Log', 'Extra', 'PlotOff' );
+					[~, ~, nThresh(j,:), nPar, g(j), chisq(j)] = psyfit( contrasts, [trials{j}.trialType] == 'c', 'Thresh', 0.75, 'Chance', 0.5, 'Lapses', 0, 'Log', 'Extra', 'PlotOff', 'Boots', 10 );
+					par = mean(nPar,2);
+					semPar(2) = std(nPar(2,:)) / sqrt(size(nPar,2));
+					semPar(1) = std(nPar(1,:)) / sqrt(size(nPar,2));
+					thresh = mean(nThresh(j,:));
+					semThresh = std(nThresh(j,:)) / sqrt(size(nThresh,2));
+					x = linspace( 0, max(uniConts)*1.1, 10000 );
 					y = psyfun( x, par(1), par(2), 0.5, 0, false, true, 'normal' );
+					yLow = psyfun( x, par(1) - semPar(1), par(2) - semPar(2), 0.5, 0, false, true, 'normal' );
+					yUp = psyfun( x, par(1) + semPar(1), par(2) + semPar(2), 0.5, 0, false, true, 'normal' );
 					plot( x, y, '-', 'LineWidth', 2, 'color', colors{j}, 'DisplayName', sprintf( '%s (n=%d)', names{j}, size(trials{j},2) ) );
+					set( fill( [x x(end:-1:1)], [yLow yUp(end:-1:1)], colors{j} ), 'LineStyle', 'none', 'FaceAlpha', 0.5 );
 					plot( [1, 1] * thresh, [0, 0.75], '--', 'color', colors{j} );
+					set( fill( [-1, 1, 1, -1]*semThresh + thresh, [0, 0, 0.75, 0.75], colors{j} ), 'LineStyle', 'none', 'FaceAlpha', 0.5 );
 				end
-				set( legend(h), 'location', 'SouthEast' );
+				set( legend(h), 'location', 'NorthWest', 'FontSize', 12 );
 				xlabel('Contrast');
 				ylabel('Correct rate');
-				set( gca, 'XLim', [0, 1], 'FontSize', 20 );
+				set( gca, 'XLim', [0, 0.008], 'YLim', [0 1], 'FontSize', 20 );
+				% set( gca, 'XLim', [0, 1], 'YLim', [0 1], 'FontSize', 20 );
+				x = get( gca, 'XLim' );
+				for( j = size(trials,2) : -1 : 1 )
+					if( ~isempty(names{j}) ) names{j} = [names{j}, ': ']; end
+					text( x(2), 0.1*j, sprintf( '%sgof = %.3f, chisq = %.3f', names{j}, g(j), chisq(j) ), 'HorizontalAlignment', 'right', 'VerticalAlignment', 'bottom', 'FontSize', 20 );
+				end
+				if( ~noCompare )
+					text( x(2), 0, sprintf( 'p = %.3f', ranksum( nThresh(1,:), nThresh(2,:), 'tail', 'both' ) ), 'HorizontalAlignment', 'right', 'VerticalAlignment', 'bottom', 'FontSize', 20 );
+				end
 				title( data(iGroup).sessionName, 'FontSize', 12, 'Interpreter', 'none' );
 			end
 		end
@@ -765,12 +1358,13 @@ classdef BlinkTransient < handle
 		end
 
 
-		function RT = BlinkRT( folder, isPlot, tStep, isNewFigure )
+		function RT = BlinkRT( folder, alignEvt, isPlot, tStep, isNewFigure )
 			%% RT:	in ms
 
-			if( nargin() < 2 ) isPlot = true; end
-			if( nargin() < 3 || isempty(tStep) ) tStep = 5; end 	% by default, 5 ms
-			if( nargin() < 4 ) isNewFigure = true; end
+			if( nargin() < 2 || isempty(alignEvt) ) alignEvt = 'tBlinkBeepOn'; end
+			if( nargin() < 3 ) isPlot = true; end
+			if( nargin() < 4 || isempty(tStep) ) tStep = 5; end 	% by default, 5 ms
+			if( nargin() < 5 ) isNewFigure = true; end
 
 			RT = [];
 			list = dir(folder);
@@ -779,19 +1373,22 @@ classdef BlinkTransient < handle
 					if( strcmp( list(i).name, '.' ) || strcmp( list(i).name, '..' ) || strcmpi( list(i).name(1:4), 'demo' ) || strcmpi( list(i).name(1:3), 'X. ' ) || strcmpi( list(i).name, 'calibration') )
 						continue;
 					else
-					 	RT = [ RT, BlinkTransient.BlinkRT( fullfile(folder, list(i).name), 0 ) ];
+					 	RT = [ RT, BlinkTransient.BlinkRT( fullfile(folder, list(i).name), alignEvt, 0 ) ];
 					end
 				else
 					if( strcmp( list(i).name, 'Trials.mat' ) )
 						load( fullfile(folder, list(i).name), 'Trials' );
 
-						tmpRT = ones(size(Trials)) * -1;
+						tmpRT = zeros(size(Trials));
 						for( iTrial = size(Trials,2) : -1 : 1 )
 							starts = [Trials(iTrial).blinks.start];
 							starts( starts <= Trials(iTrial).tBlinkBeepOn - Trials(iTrial).tTrialStart ) = [];
-							if( isempty(starts) ) continue; end
+							if( isempty(starts) )
+								tmpRT(iTrial) = NaN;
+								continue;
+							end
 
-							tmpRT(iTrial) = starts(1) - (Trials(iTrial).tBlinkBeepOn - Trials(iTrial).tTrialStart);
+							tmpRT(iTrial) = starts(1) - (Trials(iTrial).(alignEvt) - Trials(iTrial).tTrialStart);
 						end
 
 						RT = [RT tmpRT];
@@ -799,28 +1396,47 @@ classdef BlinkTransient < handle
 				end
 			end
 
-			RT(RT < 0) = [];
+			% RT(RT < 0) = [];
+			RT(isnan(RT)) = [];
 			
 			if( isPlot )
 				if( isNewFigure )
-					set( figure, 'NumberTitle', 'off', 'name', 'BlinkRT' );
+					name = 'Blink';
+					if( strcmpi( alignEvt, 'tblinkbeepon' ) ) name = [name,'RT'];
+					else name = [name, 'Aligned2', alignEvt]; end
+					set( figure, 'NumberTitle', 'off', 'name', name, 'color', 'w' );
 				end
 				ToolKit.Hist( RT, min(RT) - tStep/2 : tStep : max(RT) + tStep/2 );
-				set( gca, 'XLim', [0 2000], 'box', 'off', 'LineWidth', 2, 'FontSize', 20 );
-				xlabel( 'Reaction time (ms)' );
+				switch alignEvt
+					case 'tBlinkBeepOn'
+						x = [0 2000];
+					case 'tPlateauOn'
+						x = [-2500 2000];
+					case 'tFpOn'
+						x = [0 4500];
+					case 'tRampOn'
+						x = [-1000 3500];
+					otherwise
+						x = [0 2000];
+				end
+				set( gca, 'XLim', x, 'box', 'off', 'LineWidth', 2, 'FontSize', 20 );
+				xlabel( sprintf( 'Time aligned to %s (ms)', alignEvt ) );
 				ylabel( 'Number of trials' );
 			end
 		end
 
 
-		function amplitudes = FixSacAmp( folder, isPlot, ampStep, isNewFigure )
+		function amplitudes = FixSacAmp( folder, isPlot, ampStep, cutAmp, isNewFigure )
 			%% amplitudes:
 			%    amplitudes.microsaccades:	for recorded "microsaccades"; in arc mins
 			%    amplitudes.saccades:		for recorded "saccades"; in arc mins
+			%  input:
+			%	 cutAmp:					amplitude threshold for microsaccades and saccades, 30 arc mins by default
 
 			if( nargin() < 2 ) isPlot = true; end
-			if( nargin() < 3 || isempty(ampStep) ) ampStep = 3; end 	% by default, 5 ms
-			if( nargin() < 4 ) isNewFigure = true; end
+			if( nargin() < 3 || isempty(ampStep) ) ampStep = 3; end 	% by default, 3 arc mins
+			if( nargin() < 4 || isempty(cutAmp) ) cutAmp = 30; end
+			if( nargin() < 5 ) isNewFigure = true; end
 
 			amplitudes.microsaccades = [];
 			amplitudes.saccades = [];
@@ -832,7 +1448,7 @@ classdef BlinkTransient < handle
 					if( strcmp( list(i).name, '.' ) || strcmp( list(i).name, '..' ) || strcmpi( list(i).name(1:4), 'demo' ) || strcmpi( list(i).name(1:3), 'X. ' ) || strcmpi( list(i).name, 'calibration') )
 						continue;
 					else
-						tmpAmp = BlinkTransient.FixSacAmp( fullfile(folder, list(i).name), 0 );
+						tmpAmp = BlinkTransient.FixSacAmp( fullfile(folder, list(i).name), 0, ampStep, cutAmp );
 						amplitudes.microsaccades = [amplitudes.microsaccades, tmpAmp.microsaccades];
 						amplitudes.saccades = [amplitudes.saccades, tmpAmp.saccades];
 						amplitudes.nTrials = amplitudes.nTrials + tmpAmp.nTrials;
@@ -854,12 +1470,14 @@ classdef BlinkTransient < handle
 
 			if( isPlot )
 				if( isNewFigure )
-					set( figure, 'NumberTitle', 'off', 'name', 'Fixational saccade amplitude' );
+					set( figure, 'NumberTitle', 'off', 'name', 'Fixational saccade amplitude', 'color', 'w' );
 				end
-				edges = min(amplitudes.microsaccades) - ampStep/2 : ampStep : max(amplitudes.microsaccades) + ampStep/2;
+				% edges = min(amplitudes.microsaccades) - ampStep/2 : ampStep : max(amplitudes.microsaccades) + ampStep/2;
+				edges = 0 : ampStep : cutAmp;
 				h(2) = bar( (edges(1:end-1) + edges(2:end)) / 2, ToolKit.Hist( amplitudes.microsaccades, edges, false ) / amplitudes.nTrials, 0.9, 'r', 'LineStyle', 'none', 'DisplayName', 'microsaccades', 'FaceAlpha', 0.6 );
 				hold on;
-				edges = min(amplitudes.saccades) - ampStep/2 : ampStep : min( [max(amplitudes.saccades), 300] ) + ampStep/2;
+				% edges = min(amplitudes.saccades) - ampStep/2 : ampStep : min( [max(amplitudes.saccades), 300] ) + ampStep/2;
+				edges = cutAmp : ampStep : min( [max(amplitudes.saccades), 300] );
 				h(1) = bar( (edges(1:end-1) + edges(2:end)) / 2, ToolKit.Hist( amplitudes.saccades, edges, false ) / amplitudes.nTrials, 0.9, 'b', 'LineStyle', 'none', 'DisplayName', 'saccades', 'FaceAlpha', 0.6 );
 				legend(h);
 				title( sprintf( 'nTrials: %d', amplitudes.nTrials ) );
@@ -874,7 +1492,7 @@ classdef BlinkTransient < handle
 			%% alignment:					event to align the rates; by default, aligned to the time point of the first recorded eye position
 			%  window:						sliding window size (ms)
 			%  smooth:						'gaussian', 'square', 'raw'
-			%  rates:						1X3 structure array for "microsaccades", "saccades" and all respectively
+			%  rates:						structure array for "microsaccades" and "saccades" rate distributions
 			%    rates.rate.microsaccades:	rate for microsaccades (Hz)
 			%	 rates.rate.saccades:		rate for large saccades (Hz)
 			%    rates.tTicks:				timeline for rates.rate (ms)
@@ -970,7 +1588,7 @@ classdef BlinkTransient < handle
 
 			if( isPlot )
 				if( isNewFigure )
-					set( figure, 'NumberTitle', 'off', 'name', 'Fixational saccades rate' );
+					set( figure, 'NumberTitle', 'off', 'name', 'Fixational saccades rate', 'color', 'w' );
 				end
 				h(3) = plot( rates.tTicks, rates.rate.microsaccades + rates.rate.saccades, 'k', 'LineWidth', 2, 'DisplayName', 'overall' ); hold on;
 				h(2) = plot( rates.tTicks, rates.rate.microsaccades, 'r', 'LineWidth', 2, 'DisplayName', 'microsaccades' );
@@ -999,8 +1617,24 @@ classdef BlinkTransient < handle
 					curRates.nTrials = curRates.nTrials + newRates.nTrials;
 				end
 			end
+		end
 
-
+		function curRates = SaccadesRateAdd( curRates, newRates )
+			%% add newRates into curRates
+			if( curRates.nTrials == 0 )
+				curRates = newRates;
+			else
+				minTime = min( [ curRates.tTicks(1), newRates.tTicks(1) ] );
+				maxTime = max( [ curRates.tTicks(end), newRates.tTicks(end) ] );
+				curRates.rate.microsaccades = [ zeros( 1, curRates.tTicks(1) - minTime ), curRates.rate.microsaccades, zeros( 1, maxTime - curRates.tTicks(end) ) ];	% padding zeros
+				curRates.rate.saccades = [ zeros( 1, curRates.tTicks(1) - minTime ), curRates.rate.saccades, zeros( 1, maxTime - curRates.tTicks(end) ) ];	% padding zeros
+				newRates.rate.microsaccades = [ zeros( 1, newRates.tTicks(1) - minTime ), newRates.rate.microsaccades, zeros( 1, maxTime - newRates.tTicks(end) ) ];	% padding zeros
+				newRates.rate.saccades = [ zeros( 1, newRates.tTicks(1) - minTime ), newRates.rate.saccades, zeros( 1, maxTime - newRates.tTicks(end) ) ];	% padding zeros
+				curRates.rate.microsaccades = ( curRates.rate.microsaccades * curRates.nTrials + newRates.rate.microsaccades * newRates.nTrials ) / ( curRates.nTrials + newRates.nTrials );
+				curRates.rate.saccades = ( curRates.rate.saccades * curRates.nTrials + newRates.rate.saccades * newRates.nTrials ) / ( curRates.nTrials + newRates.nTrials );
+				curRates.tTicks = minTime : maxTime;
+				curRates.nTrials = curRates.nTrials + newRates.nTrials;
+			end
 		end
 
 
@@ -1346,7 +1980,7 @@ classdef BlinkTransient < handle
 					set( gca, 'XLim', [0 PSZ], 'YLim', [0 101], 'FontSize', FontSize, 'LineWidth', LineWidth, 'box', 'off' );
 					xlabel( 'Time (ms)' );
 					ylabel( 'Contrast gain (%)' );
-					title( 'Blink simulation' );
+					title( 'Blink simulated as gain modulation' );
 				end
 
 				% tPS = repmat( sum(PSImg,2), 1, size(x,2) ) .* QRad_fft2_SingleTrace(sFreqs, size(x,2), 0, x, y, Win)';
