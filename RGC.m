@@ -293,7 +293,7 @@ classdef RGC < handle
             end
 
         	sRate = 1000;   % sampling rate of 1000 Hz
-            nSamples = round( .350 * sRate );   % number of samples for 350 ms; even number
+            nSamples = 1000;%round( .350 * sRate );   % number of samples for 350 ms; even number
             t = (1:nSamples) / sRate;    % 350 ms
             f = (0:nSamples/2) / (nSamples/sRate);
             w = 2*pi * f( 1 : nSamples/2+1 );
@@ -369,6 +369,44 @@ classdef RGC < handle
 
             w = 2*pi * sFreqs;
             senseProfile = abs( A * exp( -i*w*D ) .* ( 1 - H_S ./ (1 + i*w*Tau_H) ).^N_H .* ( 1 ./ (1 + i*w*Tau_L) ).^N_L );
+        end
+
+
+        function Test()
+            t = 0:0.001:0.999;
+            x = sind( 360*10*t );
+            x(1:300) = 0;
+            freqs = (0:500)/0.99;
+            figure; hold on;
+            h(1) = plot( t, x, '--', 'color', [0.5 0.5 0.5], 'DisplayName', 'x' );
+            h(2) = plot( t, RGC.TemporalLinearModel(x,'m','on'), 'r', 'DisplayName', 'FR-t_domain' );
+
+            
+            K = RGC.TemporalFreqGainProfile(freqs,'m','on');
+            K(end+1:end*2-2) = conj(K(end-1:-1:2));
+            fProfile = (fft(x));
+            % fProfile(2:500) = fProfile(2:500)*2;
+            % fProfile = fProfile(1:501);
+            FR = real(ifft(K.*fProfile));
+            h(3) = plot( t, FR, 'g', 'DisplayName', 'FR-f_profile' );
+
+            [~,tRF] = RGC.TemporalLinearModel([],'m','on');
+            K = fft(tRF);
+            FR = (ifft(K.*fProfile));
+            sum(FR == real(FR))
+            h(4) = plot( t, real(FR), 'b', 'DisplayName', 'FR-f_reverse' );
+
+            legend(h);
+
+            figure;
+            x = [zeros(1,500),ones(1,500)];
+            y = abs(fft(x));
+            y(2:500) = y(2:500) * 2;
+            y = y(1:501);
+            plot(freqs,y);
+
+
+
         end
 
         

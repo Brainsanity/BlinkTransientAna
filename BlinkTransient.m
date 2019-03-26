@@ -1673,6 +1673,54 @@ classdef BlinkTransient < handle
 		end
 
 
+		function StoreBlinkSamples()
+			sbjs 	= { 'Bin',	'A058',	'A082',	'A088', 'A002', 'A050' };
+			folders = { 'F:\BlinkTransient\Bin\Extracted_0.5s_sf3',...	% 0.5s
+						'F:\BlinkTransient\A058\Extracted_1s_sf3',...
+						'F:\BlinkTransient\A082\2 FixedLevels\Extracted_1s_sf3',...
+						'F:\BlinkTransient\A088\Extracted_1s_sf3',...
+						'F:\BlinkTransient\A002',...
+						'F:\BlinkTransient\A050' };
+			indices = { 1:29,...
+						1:33,...
+						1:29,...
+						1:19,...
+						4:57,...
+						3:53 };
+
+			for( iSbj = 1 : size(sbjs,2) )
+				data = BlinkTransient.GetLabeledTrials4Blinks( folders{iSbj}, [], [], 'tRampOn', 0, 0 );
+				data = data(indices{iSbj});
+				for( i = 1 : size(data,2) )
+					data(i).trials( [data(i).trials.tBlinkBeepOn] - [data(i).trials.tRampOn] > -600 & ~[data(i).trials.hasBlink] | [data(i).trials.tBlinkBeepOn] - [data(i).trials.tRampOn] < -600 & [data(i).trials.hasBlink] ) = [];
+				end
+				trials = [data.trials];
+				trials = trials( ~[trials.hasMicrosac] & ~[trials.hasSac] );
+				sRate = trials(1).sRate;
+				bTrials = trials( [trials.hasBlink] );		% blink trials
+				% nbTrials = trials( ~[trials.hasBlink] );	% no blink trials
+				[ tTriggers, tLid, tEye, x, y ] = BlinkTransient.BlinkParams(bTrials);
+
+				f = fopen( sprintf( 'F:\BlinkTransient\%s_BlinkSamples.txt', sbjs{iSbj} ), 'w' );
+				fprintf( f, 'nTrials:%d\n', size(bTrials,2) );
+				for( iTrial = 1 : size(bTrials,2) )
+					fprintf( f, 'iTrial:%d\n', iTrial );
+					fprintf( f, 'tTriggers:%d %d\n', tTriggers(iTrial,:) );
+					fprintf( f, 'tLid:%d %d %d %d\n', tLid(iTrial,:) );
+					fprintf( f, 'tEye:%d %d\n', tEye(iTrial,:) );
+					fprintf( f, 'nSamples:%d\n', size(x{iTrial},2) );
+					fprintf( f, '%d ', x{iTrial} );
+					fprintf( f, '\n', x{iTrial} );
+					fprintf( f, '%d ', y{iTrial} );
+					fprintf( f, '\n', y{iTrial} );
+				end
+				fclose(f);
+
+
+			end
+		end
+
+
 		function [performance, nTrials, sbjs] = PopulationPerformance( condition )
 			%% population comparison of performance with paired t-test
 			%	subjects: Bin, A058, A082, A088, A002, A050, A037, A043
@@ -1761,17 +1809,19 @@ classdef BlinkTransient < handle
 		end
 
 
-		function FV_PSD( withRamp )
+		function FV_PSD( withRamp, destFolder )
 			%% PSD analysis using free viewing data
 			if( nargin() < 1 || isempty(withRamp) ) withRamp = true; end
+			if( nargin() < 2 || isempty(destFolder) ) destFolder = './'; end
 
-			global PSD_Covering;
 			SF = 3;
 			
 			FontSize = 24;
 			LineWidth = 2;
 
-			if( isempty(PSD_Covering) )
+			if( exist( [destFolder, '\PSD_FV_withRamp', num2str(withRamp), '.mat'], 'file' ) == 2 )
+				load( [destFolder, '\PSD_FV_withRamp', num2str(withRamp), '.mat'] );
+			else
 				folders = dir( 'F:\FreeViewingDatabase\*FV.mat' );
 				for( iFolder = size(folders,1) : -1 : 1 )
 					fprintf( 'Processing %s...\n', folders(iFolder).name );
@@ -1816,34 +1866,35 @@ classdef BlinkTransient < handle
 					ylabel('PSD');
 					set( legend(h), 'location', 'northwest', 'fontsize', 18 );
 
-					PSD_Covering.PS_D{iFolder} = PS_D;
-					PSD_Covering.sFreqs_D = sFreqs_D;
-					PSD_Covering.tFreqs_D = tFreqs_D;
-					PSD_Covering.PS_DB{iFolder} = PS_DB;
-					PSD_Covering.sFreqs_DB = sFreqs_DB;
-					PSD_Covering.tFreqs_DB = tFreqs_DB;
-					PSD_Covering.weighted_D(iFolder) = weighted_D;
-					PSD_Covering.weighted_DB(iFolder) = weighted_DB;
-					PSD_Covering.pCellGain = pCellGain;
-					PSD_Covering.mCellGain = mCellGain;
+					PSD_FV.PS_D{iFolder} = PS_D;
+					PSD_FV.sFreqs_D = sFreqs_D;
+					PSD_FV.tFreqs_D = tFreqs_D;
+					PSD_FV.PS_DB{iFolder} = PS_DB;
+					PSD_FV.sFreqs_DB = sFreqs_DB;
+					PSD_FV.tFreqs_DB = tFreqs_DB;
+					PSD_FV.weighted_D(iFolder) = weighted_D;
+					PSD_FV.weighted_DB(iFolder) = weighted_DB;
+					PSD_FV.pCellGain = pCellGain;
+					PSD_FV.mCellGain = mCellGain;
 
 					pause(10);
-					saveas( gcf, [ 'F:\BlinkTransient\Reports\2019.03.14\FV_', folders(iFolder).name(1:end-2), '_withRamp', num2str(withRamp), '.fig' ] );
-					saveas( gcf, [ 'F:\BlinkTransient\Reports\2019.03.14\FV_', folders(iFolder).name(1:end-2), '_withRamp', num2str(withRamp), '.png' ] );
+					saveas( gcf, [ destFolder, '\FV_', folders(iFolder).name(1:end-4), '_withRamp', num2str(withRamp), '.fig' ] );
+					saveas( gcf, [ destFolder, '\FV_', folders(iFolder).name(1:end-4), '_withRamp', num2str(withRamp), '.png' ] );
 					close(gcf);
 				end
+				save( [destFolder, '\PSD_FV_withRamp', num2str(withRamp), '.mat'], 'PSD_FV' );
 			end
 
-			PS_D = PSD_Covering.PS_D;
-			sFreqs_D = PSD_Covering.sFreqs_D;
-			tFreqs_D = PSD_Covering.tFreqs_D;
-			PS_DB = PSD_Covering.PS_DB;
-			sFreqs_DB = PSD_Covering.sFreqs_DB;
-			tFreqs_DB = PSD_Covering.tFreqs_DB;
-			weighted_D = PSD_Covering.weighted_D;
-			weighted_DB = PSD_Covering.weighted_DB;
-			pCellGain = PSD_Covering.pCellGain;
-			mCellGain = PSD_Covering.mCellGain;
+			PS_D = PSD_FV.PS_D;
+			sFreqs_D = PSD_FV.sFreqs_D;
+			tFreqs_D = PSD_FV.tFreqs_D;
+			PS_DB = PSD_FV.PS_DB;
+			sFreqs_DB = PSD_FV.sFreqs_DB;
+			tFreqs_DB = PSD_FV.tFreqs_DB;
+			weighted_D = PSD_FV.weighted_D;
+			weighted_DB = PSD_FV.weighted_DB;
+			pCellGain = PSD_FV.pCellGain;
+			mCellGain = PSD_FV.mCellGain;
 			[~, pVal.P, CI.P] = ttest( [weighted_D.P], [weighted_DB.P], 'alpha', 0.05 );
 			[~, pVal.M, CI.M] = ttest( [weighted_D.M], [weighted_DB.M], 'alpha', 0.05 )
 			if( pVal.P < 0.1 && pVal.P > 0.05 ) isShowValue.P = true;
@@ -1879,13 +1930,13 @@ classdef BlinkTransient < handle
 			ylabel('PSD');
 			set( legend(h), 'location', 'northwest', 'fontsize', 18 );
 
-			saveas( gcf, [ 'F:\BlinkTransient\Reports\2019.03.14\FV_Population_withRamp', num2str(withRamp), '.fig' ] );
-			saveas( gcf, [ 'F:\BlinkTransient\Reports\2019.03.14\FV_Population_withRamp', num2str(withRamp), '.png' ] );
+			saveas( gcf, [ destFolder, '\FV_Population_withRamp', num2str(withRamp), '.fig' ] );
+			saveas( gcf, [ destFolder, '\FV_Population_withRamp', num2str(withRamp), '.png' ] );
 
 		end
 
 
-		function [bPS, nbPS, PS] = PopulationPSD( SF, version )
+		function [bPS, nbPS, PS] = PopulationPSD( SF, version, destFolder )
 			%% population comparison of PSD weighted with RGC's temporal frequency sensitivity, based on drift only trials
 			%	subjects: Bin, A058, A082, A088, A002, A050
 			%	ramp: 1.5s
@@ -1897,6 +1948,7 @@ classdef BlinkTransient < handle
 
 			if( nargin() < 1 || isempty(SF) ) SF = 3; end
 			if( nargin() < 2 || isempty(version) ) version = 'duplicate'; end
+			if( nargin() < 3 || isempty(destFolder) ) destFolder = './'; end
 
 			sbjs 	= { 'Bin',	'A058',	'A082',	'A088', 'A002', 'A050' };
 			folders = { 'F:\BlinkTransient\Bin\Extracted_0.5s_sf3',...	% 0.5s
@@ -1924,7 +1976,7 @@ classdef BlinkTransient < handle
 				PSD.weighted_DB = PSD.weighted_DB(1:4);
 			
 			else
-				for( iSbj = 4:-1:1 ) %size(sbjs,2) : -1 : 1 )
+				for( iSbj = 1:-1:1 ) %size(sbjs,2) : -1 : 1 )
 
 		            data = BlinkTransient.GetLabeledTrials4Blinks( folders{iSbj}, [], [], 'tRampOn', 0, 0 );
 					data = data(indices{iSbj});
@@ -2050,8 +2102,10 @@ classdef BlinkTransient < handle
 								%% find blink parameters
 								tStart = trial.blinks.start / sRate * 1000;
 								dur = trial.blinks.duration / sRate * 1000;
-								dur( tStart <= trial.tBlinkBeepOn - trial.tTrialStart ) = [];
-								tStart( tStart <= trial.tBlinkBeepOn - trial.tTrialStart ) = [];
+                                index = tStart <= trial.tBlinkBeepOn - trial.tTrialStart | tStart+dur >= trial.tMaskOn - trial.tTrialStart - 50;
+								dur(index) = [];
+								tStart(index) = [];
+                                if( isempty(tStart) ) continue; end
 								tStart = tStart(1);			% time when P1 occluded (ms)
 								tEnd = tStart + dur(1);		% time when P1 un-occluded (ms)
 								s2 = round( tStart/1000*sRate );
@@ -2118,8 +2172,8 @@ classdef BlinkTransient < handle
 									tEye(2) = (tEnd+5) / 1000 * sRate;
 								end
 								tEye = round( tEye - (trial.tRampOn - trial.tTrialStart)/1000*sRate );	% in samples
-								tEye(1) = max(1, tEye(1));
-								tEye(2) = min(size(x,2), tEye(2));
+								tEye(1) = max(2, tEye(1));
+								tEye(2) = min(size(x,2)-1, tEye(2));
 								% tmpX = Trials(iTrial).x.position( round((tEnd-5)/1000*sRate) : lim );
 								% tmpY = Trials(iTrial).y.position( round((tEnd-5)/1000*sRate) : lim );
 								% tmpX = tmpX - tmpX(1);
@@ -2195,8 +2249,8 @@ classdef BlinkTransient < handle
 						end
 						if( ~isempty(h) ) set( legend(h(2:-1:1)), 'FontSize', FontSize ); end
 						pause(10);
-						saveas( hDrifts, [ 'F:\BlinkTransient\Reports\2019.03.14\Drifts_', version, '_', con, '_', sbjs{iSbj}, '.fig' ] );
-						saveas( hDrifts, [ 'F:\BlinkTransient\Reports\2019.03.14\Drifts_', version, '_', con, '_', sbjs{iSbj}, '.png' ] );
+						saveas( hDrifts, [ destFolder, '\Drifts_', version, '_', con, '_', sbjs{iSbj}, '.fig' ] );
+						saveas( hDrifts, [ destFolder, '\Drifts_', version, '_', con, '_', sbjs{iSbj}, '.png' ] );
 						close(hDrifts);
 					end
 
@@ -2261,8 +2315,8 @@ classdef BlinkTransient < handle
 					set( legend(h), 'location', 'northwest', 'fontsize', 18 );
 
 					pause(10);
-					saveas( hMain, [ 'F:\BlinkTransient\Reports\2019.03.14\PSD_', version, '_', sbjs{iSbj}, '.fig' ] );
-					saveas( hMain, [ 'F:\BlinkTransient\Reports\2019.03.14\PSD_', version, '_', sbjs{iSbj}, '.png' ] );
+					saveas( hMain, [ destFolder, '\PSD_', version, '_', sbjs{iSbj}, '.fig' ] );
+					saveas( hMain, [ destFolder, '\PSD_', version, '_', sbjs{iSbj}, '.png' ] );
 					close(hMain);
 
 					PSD.PS_D{iSbj} = PS_D;
@@ -2322,8 +2376,8 @@ classdef BlinkTransient < handle
 			set( legend(h), 'location', 'northwest', 'fontsize', 18 );
 
 			pause(10);
-			saveas( gcf, [ 'F:\BlinkTransient\Reports\2019.03.14\PSD_', version, '_Population', '.fig' ] );
-			saveas( gcf, [ 'F:\BlinkTransient\Reports\2019.03.14\PSD_', version, '_Population', '.png' ] );
+			saveas( gcf, [ destFolder, '\PSD_', version, '_Population', '.fig' ] );
+			saveas( gcf, [ destFolder, '\PSD_', version, '_Population', '.png' ] );
 			% close(gcf);
 
 		end
@@ -4958,6 +5012,86 @@ classdef BlinkTransient < handle
 			end
 		end
 
+		function [tTriggers, tLid, tEye, x, y] = BlinkParams(trials)
+			tTriggers = ones( length(trials), 2 ) * NaN;
+			tLid = ones( length(trials), 4 ) * NaN;
+			tEye = ones( length(trials), 2 ) * NaN;
+			x{length(trials)} = [];
+			y{length(trials)} = [];
+
+			for( iTrial = 1 : length(trials) )
+				%% find blink parameters
+				tStart = trials(iTrial).blinks.start / trials(iTrial).sRate * 1000;
+				dur = trials(iTrial).blinks.duration / trials(iTrial).sRate * 1000;
+				dur( tStart <= trials(iTrial).tBlinkBeepOn - trials(iTrial).tTrialStart ) = [];
+				tStart( tStart <= trials(iTrial).tBlinkBeepOn - trials(iTrial).tTrialStart ) = [];
+				tStart = tStart(1);			% time when P1 occluded (ms)
+				tEnd = tStart + dur(1);		% time when P1 un-occluded (ms)
+				s2 = round( tStart/1000*trials(iTrial).sRate );
+				s1 = s2;	% start of eye lid movement (suppose eye lid and eye start to move simultaniously), in samples
+				lim = floor((tStart-80)/1000*trials(iTrial).sRate);
+				while(true)
+					s = find( trials(iTrial).velocity(lim:s1) > 180, 1, 'last' );
+					if( ~isempty(s) && lim + s -1 > s1 - 15/1000*trials(iTrial).sRate )
+						s1 = lim-1 + find( trials(iTrial).velocity(lim+(0:s-1)) < 180, 1, 'last' );
+						if( isempty(s1) )
+							s1 = lim;
+							break;
+						end
+					else
+						break;
+					end
+				end
+				s2 = (s2-s1) * 0.1538 + s2;		% time when eye lid fully closed, in samples
+
+				s3 = round( tEnd/1000*trials(iTrial).sRate );
+				s4 = round( tEnd/1000*trials(iTrial).sRate );	% end of eye lid movement (suppose eye lid and eye stop moving simultatneously), in samples
+				lim = ceil( (tEnd+150)/1000*trials(iTrial).sRate );
+				while(true)
+					s = find( trials(iTrial).velocity(s4:lim) > 180, 1, 'first' );
+					if( ~isempty(s) && s4 + s - 1 < s4 + 15/1000*trials(iTrial).sRate )
+						s4 = s4-1 + find( trials(iTrial).velocity(s4+s-1:lim) < 180, 1, 'first' );
+						if( isempty(s4) )
+							s4 = lim;
+							break;
+						end
+					else
+						break;
+					end
+				end
+				s3 = s3 - (s4-s3) * 0.1563;		% time when eye starts to open
+				tLid(iTrial,:) = round( [s1 s2 s3 s4] / trials(iTrial).sRate*1000 - (trials(iTrial).tRampOn - trials(iTrial).tTrialStart) );	% in ms
+
+
+				%% find parameters of eye movements during blink
+				lim = floor((tStart-50)/1000*trials(iTrial).sRate);
+				vel = trials(iTrial).velocity( lim : round(tStart/1000*trials(iTrial).sRate) );
+				derive = diff(vel);
+				idx = find( derive(2:end) .* derive(1:end-1) <= 0, 1, 'last' );
+				if( ~isempty(idx) )
+					tEye(iTrial,1) = (lim + idx + 1);		% time when P4 occluded therefore eye trace afterwards is not reliable, in samples
+				else
+					tEye(iTrial,1) = tStart/1000*trials(iTrial).sRate;
+				end
+
+				lim = ceil( (tEnd+150)/1000*trials(iTrial).sRate );
+				vel = trials(iTrial).velocity( round((tEnd+5)/1000*trials(iTrial).sRate) : lim );
+				derive = diff(vel);
+				idx = find( derive(2:end) .* derive(1:end-1) <=0, 1, 'first' );
+				if( ~isempty(idx) )
+					tEye(iTrial,2) = (tEnd+5)/1000*trials(iTrial).sRate + (idx + 1);		% time when P4 un-occluded, eye trace before which is not reliable, in samples
+				else
+					tEye(iTrial,2) = (tEnd+5) / 1000 * trials(iTrial).sRate;
+				end
+				tEye(iTrial,:) = round( tEye(iTrial,:)/trials(iTrial).sRate*1000 - (trials(iTrial).tRampOn - trials(iTrial).tTrialStart) );	% in ms
+				index = (0:trials(iTrial).samples-1)/trials(iTrial).sRate*1000 >= tEye(iTrial,1) + (trials(iTrial).tRampOn - trials(iTrial).tTrialStart) & (0:trials(iTrial).samples-1)/trials(iTrial).sRate*1000 <= tEye(iTrial,2) + (trials(iTrial).tRampOn - trials(iTrial).tTrialStart);
+				x{iTrial} = trials(iTrial).x.position(index);
+				y{iTrial} = trials(iTrial).y.position(index);
+
+				tTriggers(iTrial,:) = round( [tStart, tEnd] - ( trials(iTrial).tRampOn - trials(iTrial).tTrialStart ) );
+			end
+		end
+
 
 		function RT = BlinkRT( sbj, folder, indices, alignEvt, fitKernel, isPlot, tStep, isNewFigure )
 			%% RT:	in ms
@@ -5603,7 +5737,10 @@ classdef BlinkTransient < handle
 			sFreqs = (0 : size(PS,1)-1) / (atand( PSX/swPix*swMm/2 / sDist ) * 2);
 			tFreqs = (0 : size(PS,3)-1) / (PSZ/1000);
 			mov = zeros( PSX, PSY, PSZ, 'single' );
-
+			Win = zeros(PSX,PSY,PSZ,'single');
+			w = 1024;
+			Win( :, :, (1:w) + (PSZ-150)/2-w/2 ) = repmat( reshape( hann(w), 1, 1, w ), PSX, PSY );
+            
 			sigma = 180;%120;
 			if( ~exist( 'orientation', 'var' ) ) orientation = 0; end
 			phase = 0;
@@ -5743,6 +5880,8 @@ classdef BlinkTransient < handle
 							panel2 = false;
 							figure(hMain);
                             subplot(2,2,2); hold on;
+
+							plot( reshape(Win(1,1,:),1,[])*400-400, 'LineStyle', '--', 'LineWidth', 2, 'color', 'r' );
 							% plot( 1:PSZ, bTrace, 'LineWidth', LineWidth );
 							% set( gca, 'XLim', [0 PSZ], 'YLim', [min(bTrace) max(bTrace)] * 1.05, 'FontSize', FontSize, 'LineWidth', LineWidth, 'box', 'off' );
 							% xlabel( 'Time (ms)' );
@@ -5756,6 +5895,7 @@ classdef BlinkTransient < handle
 							AX(2).YLabel.String = 'Stimulus gain';
 							AX(2).XLabel.String = 'Time (ms)';
 	                        set( H2, 'LineWidth', LineWidth );
+	                        pause(3);
 	                    else
 	                    	;%plot( AX(1), 1:PSZ, bTrace, 'b' );
 	                    end
