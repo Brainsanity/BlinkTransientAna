@@ -1689,6 +1689,7 @@ classdef BlinkTransient < handle
 						3:53 };
 
 			for( iSbj = 1 : size(sbjs,2) )
+				fprintf( 'Processing data for %s...\n', sbjs{iSbj} );
 				data = BlinkTransient.GetLabeledTrials4Blinks( folders{iSbj}, [], [], 'tRampOn', 0, 0 );
 				data = data(indices{iSbj});
 				for( i = 1 : size(data,2) )
@@ -1701,18 +1702,18 @@ classdef BlinkTransient < handle
 				% nbTrials = trials( ~[trials.hasBlink] );	% no blink trials
 				[ tTriggers, tLid, tEye, x, y ] = BlinkTransient.BlinkParams(bTrials);
 
-				f = fopen( sprintf( 'F:\BlinkTransient\%s_BlinkSamples.txt', sbjs{iSbj} ), 'w' );
-				fprintf( f, 'nTrials:%d\n', size(bTrials,2) );
-				for( iTrial = 1 : size(bTrials,2) )
+				f = fopen( sprintf( 'F:/BlinkTransient/BlinkSamples/%s_BlinkSamples.txt', sbjs{iSbj} ), 'w' );
+				fprintf( f, 'nTrials:%d\n', size(tTriggers,1) );
+				for( iTrial = 1 : size(tTriggers,1) )
 					fprintf( f, 'iTrial:%d\n', iTrial );
 					fprintf( f, 'tTriggers:%d %d\n', tTriggers(iTrial,:) );
 					fprintf( f, 'tLid:%d %d %d %d\n', tLid(iTrial,:) );
 					fprintf( f, 'tEye:%d %d\n', tEye(iTrial,:) );
 					fprintf( f, 'nSamples:%d\n', size(x{iTrial},2) );
-					fprintf( f, '%d ', x{iTrial} );
-					fprintf( f, '\n', x{iTrial} );
-					fprintf( f, '%d ', y{iTrial} );
-					fprintf( f, '\n', y{iTrial} );
+					fprintf( f, '%.2f ', x{iTrial} );
+					fprintf( f, '\n' );
+					fprintf( f, '%.2f ', y{iTrial} );
+					fprintf( f, '\n' );
 				end
 				fclose(f);
 
@@ -5025,8 +5026,10 @@ classdef BlinkTransient < handle
 				dur = trials(iTrial).blinks.duration / trials(iTrial).sRate * 1000;
 				dur( tStart <= trials(iTrial).tBlinkBeepOn - trials(iTrial).tTrialStart ) = [];
 				tStart( tStart <= trials(iTrial).tBlinkBeepOn - trials(iTrial).tTrialStart ) = [];
+				if( isempty(tStart) ) continue; end
 				tStart = tStart(1);			% time when P1 occluded (ms)
 				tEnd = tStart + dur(1);		% time when P1 un-occluded (ms)
+				if( tEnd/1000*trials(iTrial).sRate >= size(trials(iTrial).x.position,2) ) continue; end
 				s2 = round( tStart/1000*trials(iTrial).sRate );
 				s1 = s2;	% start of eye lid movement (suppose eye lid and eye start to move simultaniously), in samples
 				lim = floor((tStart-80)/1000*trials(iTrial).sRate);
@@ -5090,6 +5093,12 @@ classdef BlinkTransient < handle
 
 				tTriggers(iTrial,:) = round( [tStart, tEnd] - ( trials(iTrial).tRampOn - trials(iTrial).tTrialStart ) );
 			end
+
+			x(isnan(tTriggers(:,1))) = [];
+			y(isnan(tTriggers(:,1))) = [];
+			tTriggers( isnan(tTriggers(:,1)), : ) = [];
+			tLid( isnan(tLid(:,1)), : ) = [];
+			tEye( isnan(tEye(:,1)), : ) = [];
 		end
 
 
