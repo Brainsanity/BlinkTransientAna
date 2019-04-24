@@ -1,7 +1,7 @@
 classdef RGC < handle
     methods (Static)
-    	function main( version, modulator )
-    		figure; hold on;
+    	function [FRs, tFRs, movs] = main( version, modulator )
+    		set( figure, 'NumberTitle', 'off', 'name', ['Firing Rate | ' modulator] ); hold on;
 
     		swPix = 1366;
     		swMm = 600;
@@ -16,6 +16,7 @@ classdef RGC < handle
     		phase = 0;
     		wlPix = swPix ./ ( atand(swMm/2/sDist) * 2 * sf );
     		img = ToolKit.Gabor( wlPix, orientation, phase, swPix, shPix, 'grating' )' * contrast;
+            % img = ToolKit.Gabor( wlPix, orientation, phase, swPix, shPix, 'grating' )' * 1 + 128;   % in intensity
     		
     		% stimulus gain as function of time: ramp + plateau
             tRamp = 1024 + 512; % ms
@@ -26,6 +27,7 @@ classdef RGC < handle
 
     		load('Trials.mat');
     		Trials(51) = [];
+            Trials = Trials(1:5);
     		nValidTrials = size(Trials,2);
     		iTrial = 1;
 
@@ -39,6 +41,7 @@ classdef RGC < handle
     		rfImg = zeros(rfHPix, rfWPix, T);
 
     		FRs = ones(size(Trials,2),T) * NaN;
+            tFRs = ones(size(Trials,2),T) * NaN;
 
     		for( iTrial = 1 : size(Trials,2) )
 	    		%% simulate blink as covering the whole visual field briefly (150 ms) 
@@ -113,12 +116,12 @@ classdef RGC < handle
 					bTrace = ones(1,T) * min( a * bx(:) - b * by(:) ) - 1;
 					
 					if( ~strcmp( modulator, 'drift' ) )
-						tFullCover = 150;			% 150 ms of complete covering
+						tFullCover = 200;			% 150 ms of complete covering
 						d = - round(tFullCover/2);% + randi(50) - 26;		% blink central time relative to stimulus center
 						bTrace( (1:tFullCover) + (end-tFullCover)/2 + d ) = max( a * bx(:) - b * by(:) );
 						dur = round(dc/swPix*20);	% move by PSX in 20 ms
-						bTrace( (1-dur:0) + (end-tFullCover)/2 + d ) = min( a * bx(:) - b * by(:) ) - 1 + round( (1:dur)/dur * dc );
-						bTrace( (dur:-1:1) + tFullCover + (end-tFullCover)/2 + d ) = min( a * bx(:) - b * by(:) ) - 1 + round( (1:dur)/dur * dc );
+						% bTrace( (1-dur:0) + (end-tFullCover)/2 + d ) = min( a * bx(:) - b * by(:) ) - 1 + round( (1:dur)/dur * dc );
+						% bTrace( (dur:-1:1) + tFullCover + (end-tFullCover)/2 + d ) = min( a * bx(:) - b * by(:) ) - 1 + round( (1:dur)/dur * dc );
 						
 						% freeze eye trace during blink
 						iStart = find( bTrace > min( a * bx(:) - b * by(:) ) - 1, 1, 'first' );	% start of blink
@@ -134,13 +137,16 @@ classdef RGC < handle
 					% create 3D input
 					for( t = 1 : T )
 						tmpMov = zeros(swPix,shPix);
-						tmpMov( max(1,1-x(t)) : min(swPix,swPix-x(t)), max(1,1-y(t)) : min(shPix,shPix-y(t)) ) = img( max(1,1+x(t)) : min(swPix,swPix+x(t)), max(1,1+y(t)) : min(shPix,shPix+y(t)) ) * Gt(t);
+						tmpMov( max(1,1-x(t)) : min(swPix,swPix-x(t)), max(1,1-y(t)) : min(shPix,shPix-y(t)) ) = img( max(1,1+x(t)) : min(swPix,swPix+x(t)), max(1,1+y(t)) : min(shPix,shPix+y(t)) ) * Gt(t) + 1;
 						tmpMov( a * bx - b * by <= bTrace(t) ) = 0;
 						rfImg(:,:,t) = tmpMov( (1:rfWPix)+rfLoc(1), (1:rfHPix)+rfLoc(2) )';
 						% imshow( tmpMov', [-1 1]*contrast ); pause(0.1);
 						% imshow( rfImg, [-1 1]*contrast ); pause(0.1);
 					end
 				end
+
+                movs{iTrial} = rfImg;
+                % continue;
 	    		
 	    		% Linearity
 	    		% [fRate, fRate_C, fRate_S] = RGC.SpatioLinearModel( reshape( rfImg(:) * Gt, rfHPix, rfWPix, [] ), precision, round(rfWPix/2), round(rfHPix/2), 'p', 40 );
@@ -149,10 +155,12 @@ classdef RGC < handle
 	    		fRate = RGC.TemporalLinearModel( fRate, 'm', 'on' );
 	    		plot( 1:T, fRate, 'r' );
 
+                tFRs(iTrial,:) = fRate;
+
 	    		% Non-linearity: sigmoid
-	    		K = 20;	% peak firing rate
-	    		g = 5;	% gain, which modulates the slope of the S-curve
-	    		thresh = 0.2;
+	    		K = 30;	% peak firing rate
+	    		g = 1;	% gain, which modulates the slope of the S-curve
+	    		thresh = 0;%60;%0.2;
 	    		fRate = K ./ ( 1 + exp( -g * (fRate - thresh) ) );
 	    		plot( 1:T, fRate, 'g' );
 
@@ -166,6 +174,7 @@ classdef RGC < handle
 	    		% pause(0.5);
 	    	end
 
+            plot( 1:T, nanmean(tFRs,1), 'color', [0.5 0 0], 'LineWidth', 2 );
 	    	plot( 1:T, nanmean(FRs,1), 'color', [0 0.5 0], 'LineWidth', 2 );
 
 
@@ -270,7 +279,7 @@ classdef RGC < handle
 		            D = 2.2/1000;   % s
 		            N_L = 30.30;
 		            Tau_L = 1.41/1000;  % s
-		            H_S = 0.98;
+		            H_S = 1;%0.98;        % H_S = 1 makes the summation of the kernel be zero
 		            Tau_0 = 54.6/1000;  % s
 		            C_half = 0.056;
 		        elseif( strcmpi( specifier, 'off' ) )
@@ -278,7 +287,7 @@ classdef RGC < handle
 		            D = 2.31/1000;   % s
 		            N_L = 22.60;
 		            Tau_L = 1.98/1000;  % s
-		            H_S = 0.93;
+		            H_S = 1;%0.93;        % H_S = 1 makes the summation of the kernel be zero
 		            Tau_0 = 153.34/1000;  % s
 		            C_half = 0.051;
             	else
@@ -345,7 +354,7 @@ classdef RGC < handle
                     D = 2.2/1000;   % s
                     N_L = 30.30;
                     Tau_L = 1.41/1000;  % s
-                    H_S = 0.98;
+                    H_S = 1;%0.98;
                     Tau_0 = 54.6/1000;  % s
                     C_half = 0.056;
                 elseif( strcmpi( specifier, 'off' ) )

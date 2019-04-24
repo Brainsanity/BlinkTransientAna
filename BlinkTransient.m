@@ -1699,17 +1699,27 @@ classdef BlinkTransient < handle
 				trials = trials( ~[trials.hasMicrosac] & ~[trials.hasSac] );
 				sRate = trials(1).sRate;
 				bTrials = trials( [trials.hasBlink] );		% blink trials
+				index = false(size(bTrials));
+				for( iTrial = 1 : size(bTrials,2) )
+					blinks = bTrials(iTrial).blinks;
+					iBlink = find( (blinks.start-1) / bTrials(iTrial).sRate * 1000 > bTrials(iTrial).tRampOn - bTrials(iTrial).tTrialStart, 1, 'first' );
+					if( ( blinks.start(iBlink) -1 ) / bTrials(iTrial).sRate * 1000 > bTrials(iTrial).tPlateauOn - bTrials(iTrial).tTrialStart ||...
+						  blinks.duration(iBlink) / bTrials(iTrial).sRate * 1000 > 350 )
+						index(iTrial) = true;
+					end
+				end
+				bTrials(index) = [];
 				% nbTrials = trials( ~[trials.hasBlink] );	% no blink trials
 				[ tTriggers, tLid, tEye, x, y ] = BlinkTransient.BlinkParams(bTrials);
 
 				f = fopen( sprintf( 'F:/BlinkTransient/BlinkSamples/%s_BlinkSamples.txt', sbjs{iSbj} ), 'w' );
-				fprintf( f, 'nTrials:%d\n', size(tTriggers,1) );
+				fprintf( f, 'nTrials: %d\n', size(tTriggers,1) );
 				for( iTrial = 1 : size(tTriggers,1) )
-					fprintf( f, 'iTrial:%d\n', iTrial );
-					fprintf( f, 'tTriggers:%d %d\n', tTriggers(iTrial,:) );
-					fprintf( f, 'tLid:%d %d %d %d\n', tLid(iTrial,:) );
-					fprintf( f, 'tEye:%d %d\n', tEye(iTrial,:) );
-					fprintf( f, 'nSamples:%d\n', size(x{iTrial},2) );
+					fprintf( f, 'iTrial: %d\n', iTrial );
+					fprintf( f, 'tTriggers: %d %d\n', tTriggers(iTrial,:) );
+					fprintf( f, 'tLid: %d %d %d %d\n', tLid(iTrial,:) );
+					fprintf( f, 'tEye: %d %d\n', tEye(iTrial,:) );
+					fprintf( f, 'nSamples: %d\n', size(x{iTrial},2) );
 					fprintf( f, '%.2f ', x{iTrial} );
 					fprintf( f, '\n' );
 					fprintf( f, '%.2f ', y{iTrial} );
@@ -1773,6 +1783,16 @@ classdef BlinkTransient < handle
 				else
 					index = ~[trials.hasSac] & ~[trials.hasMicrosac];
 				end
+
+				for( iTrial = 1 : size(trials,2) )
+					notracks = trials(iTrial).notracks;
+					% notracks.start( notracks.duration / trials(1).sRate * 1000 < 15 ) = [];
+					% notracks.duration( notracks.duration / trials(1).sRate * 1000 < 15 ) = [];
+					index(iTrial) = index(iTrial) && sum( max( 0, ...
+						min( (notracks.start+notracks.duration-1)/trials(iTrial).sRate*1000, trials(iTrial).tMaskOn-trials(iTrial).tTrialStart ) - ...
+							max( (notracks.start-1)/trials(iTrial).sRate*1000, trials(iTrial).tRampOn-trials(iTrial).tTrialStart ) ) ) < 15;
+				end
+
 				nTrials.blink(iSbj) = sum( [trials.hasBlink] & index & ( [trials.trialType] == 'c' | [trials.trialType] == 'e' ) );
 				nTrials.noBlink(iSbj) = sum( ~[trials.hasBlink] & index & ( [trials.trialType] == 'c' | [trials.trialType] == 'e' ) );
 				performance.blink(iSbj) = sum( [trials.hasBlink] & index & [trials.trialType] == 'c' ) / nTrials.blink(iSbj);
@@ -1810,7 +1830,612 @@ classdef BlinkTransient < handle
 		end
 
 
-		function FV_PSD( withRamp, destFolder )
+		function FV_Power( withRamp, destFolder, w, rSlope, gainMin )
+			%  w:				total duration of a simulated blink in ms; 200 by default
+			%  rSlope:			proportion/ratio of two slopes over total duration for a simulated blink; 0.2 by default
+			%  gainMin:			minimal gain during a simulated blink; 0 by default
+			
+			if( nargin() < 1 || isempty(withRamp) ) withRamp = false; end
+			if( nargin() < 2 || isempty(destFolder) ) destFolder = './'; end
+			if( nargin() < 3 || isempty(w) ) w = 200; end
+			if( nargin() < 4 || isempty(rSlope) ) rSlope = 0.2; end
+			if( nargin() < 5 || isempty(gainMin) ) gainMin = 0; end
+
+			sf = 3;
+			swPix = 1366;	% screen width in pixels
+			swMm = 600;		% screen width in mm
+			shPix = 768;	% screen height in pixels
+			shMm = 335;		% screen height in mm
+			sDist = 1620;%1190;	% distance from screen to subject's eye in mm
+			gwPix = 720;	% width of gabor patch in pixels; half of the screen height
+
+    		orientation = 0;
+    		phase = 0;
+    		wlPix = swPix ./ ( atand(swMm/2/sDist) * 2 * sf );
+    		contrast = 1;
+    		bgnLuminance = 128;
+    		img = ToolKit.Gabor( wlPix, orientation, phase, swPix, shPix, 'grating' )' * contrast;
+
+    		tRamp = 1500; % ms
+            tPlateau = 1000;    % ms
+    		T = tRamp + tPlateau;	% ms
+    		Gt = ones(1,T);
+    		if(withRamp)
+	    		Gt(1:tRamp) = (0:tRamp-1)/(tRamp-1);
+	    	end
+
+	    	% spatial receptive field
+    		rfWDeg = 5;%10;
+    		rfHDeg = 5;%10;
+    		rfWPix = ceil( tand(rfWDeg/2) * 2 * sDist / swMm * swPix );
+    		rfHPix = ceil( tand(rfHDeg/2) * 2 * sDist / shMm * shPix );
+    		precision = rfWDeg / rfWPix;
+    		rfLoc = round( ( [size(img)] - [rfWPix, rfHPix] ) / 2 ) - 1;	% bottom left point [x,y]
+    		
+			FontSize = 24;
+			LineWidth = 2;
+
+			if( exist( [destFolder, '\FV_Power_withRamp', num2str(withRamp), '.mat'], 'file' ) == 2 )
+				load( [destFolder, '\FV_Power_withRamp', num2str(withRamp), '.mat'] );
+			else
+				folders = dir( 'F:\FreeViewingDatabase\*FV.mat' );
+				Pop_L_FRs.Blink = ones(size(folders,1),T-100) * NaN;
+				Pop_L_FRs.NoBlink = ones(size(folders,1),T-100) * NaN;
+		        Pop_LN_FRs.Blink = ones(size(folders,1),T-100) * NaN;
+		        Pop_LN_FRs.NoBlink = ones(size(folders,1),T-100) * NaN;
+		        Pop_Power.Blink = zeros(1,size(folders,1));
+		        Pop_Power.NoBlink = zeros(1,size(folders,1));
+				for( iFolder = size(folders,1) : -1 : 1 )
+					fprintf( 'Processing %s...\n', folders(iFolder).name );
+					vt = load( fullfile( folders(iFolder).folder, folders(iFolder).name ), 'Trials' );
+					Trials = vt.Trials;
+					
+					rfImg = zeros(rfHPix, rfWPix, T);
+		    		L_FRs.Blink = ones(size(Trials,2),T) * NaN;
+		    		L_FRs.NoBlink = ones(size(Trials,2),T) * NaN;
+		            LN_FRs.Blink = ones(size(Trials,2),T) * NaN;
+		            LN_FRs.NoBlink = ones(size(Trials,2),T) * NaN;
+					for( iTrial = 1:size(Trials,2) )
+						% get eye drift
+						x = zeros( 1, sum([Trials(iTrial).drifts.duration]) );
+						y = zeros(size(x));
+						index = 0;
+						for( i = 1 : size( Trials(iTrial).drifts.start, 2 ) )						
+							idx = find( Trials(iTrial).drifts.start(i) == Trials(iTrial).blinks.start + Trials(iTrial).blinks.duration );
+							if( ~isempty(idx) )
+								st = Trials(iTrial).drifts.start(i) + 250;
+								dur = Trials(iTrial).drifts.duration(i) - 250;
+								if( dur < 1 )
+									continue;
+								else
+									Trials(iTrial).drifts.start(i) = st;
+									Trials(iTrial).drifts.duration(i) = dur;
+								end
+							end
+							idx = find( Trials(iTrial).drifts.start(i) + Trials(iTrial).drifts.duration(i) == Trials(iTrial).blinks.start );
+							if( ~isempty(idx) )
+								dur = Trials(iTrial).drifts.duration(i) - 50;
+								if( dur < 1 )
+									continue;
+								else
+									Trials(iTrial).drifts.duration(i) = dur;
+								end
+							end
+							x( (1 : Trials(iTrial).drifts.duration(i)) + index ) = Trials(iTrial).x.position( (0 : Trials(iTrial).drifts.duration(i)-1) + Trials(iTrial).drifts.start(i) );
+							y( (1 : Trials(iTrial).drifts.duration(i)) + index ) = Trials(iTrial).y.position( (0 : Trials(iTrial).drifts.duration(i)-1) + Trials(iTrial).drifts.start(i) );
+							if( index > 0 )
+								x( (1 : Trials(iTrial).drifts.duration(i)) + index ) = x( (1 : Trials(iTrial).drifts.duration(i)) + index ) - x(index+1) + x(index);
+								y( (1 : Trials(iTrial).drifts.duration(i)) + index ) = y( (1 : Trials(iTrial).drifts.duration(i)) + index ) - y(index+1) + y(index);
+							end
+							index = index + Trials(iTrial).drifts.duration(i);
+						end
+						x( index+1 : end ) = [];
+						y( index+1 : end ) = [];
+						if( size(x,2) < T ) continue; end
+						x = x(1:T);
+						y = y(1:T);
+
+						% rotate by -orientation
+						xx = x * cosd(orientation) + y * sind(orientation);
+						yy = y * cosd(orientation) - x * sind(orientation);
+
+						% center eye trace
+						x = x - mean(x);
+						y = y - mean(y);
+
+						% convert to pixels
+						x = round( sDist * tand(x/60) / swMm * swPix );
+						y = round( sDist * tand(y/60) / shMm * shPix );
+
+						%% NoBlink condition
+						Bt = ones(1,T);
+						for( t = 1 : T )
+							rfImg(:,:,t) = ( img( (1:rfWPix) + rfLoc(1) + x(t), (1:rfHPix) + rfLoc(2) + y(t) )' * Gt(t) + bgnLuminance ) * Bt(t);
+						end
+						% linearity
+						[fRate, fRate_C, fRate_S] = RGC.SpatioLinearModel( rfImg, precision, round(rfWPix/2), round(rfHPix/2), 'm', 25 );
+		                L_FRs.NoBlink(iTrial,:) = RGC.TemporalLinearModel( fRate, 'm', 'on' );;
+			    		% Non-linearity: sigmoid
+			    		K = 30;	% peak firing rate
+			    		g = 1;	% gain, which modulates the slope of the S-curve
+			    		thresh = 0;%60;%0.2;
+			    		LN_FRs.NoBlink(iTrial,:) = K ./ ( 1 + exp( -g * (L_FRs.NoBlink(iTrial,:) - thresh) ) );
+
+			    		%% Blink condition
+			    		Bt = ones(1,T);
+						offset = 0;%randi(501) - 251;
+						Bt( (1:w) + (end-w)/2 + offset ) = gainMin;
+						down = w*rSlope/2;
+						Bt( (1:down) + (end-w)/2 + offset ) = 1 - (1:down)/down * (1-gainMin);
+						up = w*rSlope/2;
+						Bt( ( w : -1 : w-up+1 ) + (end-w)/2 + offset ) = 1 - (1:up)/up * (1-gainMin);
+						for( t = 1 : T )
+							rfImg(:,:,t) = ( img( (1:rfWPix) + rfLoc(1) + x(t), (1:rfHPix) + rfLoc(2) + y(t) )' * Gt(t) + bgnLuminance ) * Bt(t);
+						end
+						% linearity
+						[fRate, fRate_C, fRate_S] = RGC.SpatioLinearModel( rfImg, precision, round(rfWPix/2), round(rfHPix/2), 'm', 25 );
+		                L_FRs.Blink(iTrial,:) = RGC.TemporalLinearModel( fRate, 'm', 'on' );;
+			    		% Non-linearity: sigmoid
+			    		K = 30;	% peak firing rate
+			    		g = 1;	% gain, which modulates the slope of the S-curve
+			    		thresh = 0;%60;%0.2;
+			    		LN_FRs.Blink(iTrial,:) = K ./ ( 1 + exp( -g * (L_FRs.Blink(iTrial,:) - thresh) ) );
+
+					end
+					L_FRs.NoBlink( isnan(L_FRs.NoBlink(:,1)), : ) = [];
+					LN_FRs.NoBlink( isnan(LN_FRs.NoBlink(:,1)), : ) = [];
+					L_FRs.Blink( isnan(L_FRs.Blink(:,1)), : ) = [];
+					LN_FRs.Blink( isnan(LN_FRs.Blink(:,1)), : ) = [];
+					L_FRs.NoBlink( :, 1:100 ) = [];
+					LN_FRs.NoBlink( :, 1:100 ) = [];
+					L_FRs.Blink( :, 1:100 ) = [];
+					LN_FRs.Blink( :, 1:100 ) = [];
+
+					Power.NoBlink = var( L_FRs.NoBlink.^2, 0, 2 );
+					Power.Blink = var( L_FRs.Blink.^2, 0, 2 );
+
+					ShowFigure( folders(iFolder).name, L_FRs, LN_FRs, Power );
+					saveas( gcf, [ destFolder, '\FV_Power_', folders(iFolder).name(1:end-4), '_withRamp', num2str(withRamp), '.fig' ] );
+					saveas( gcf, [ destFolder, '\FV_Power_', folders(iFolder).name(1:end-4), '_withRamp', num2str(withRamp), '.png' ] );
+					close(gcf);
+					
+					Pop_L_FRs.Blink(iFolder,:) = mean( L_FRs.Blink, 1 );
+					Pop_L_FRs.NoBlink(iFolder,:) = mean( L_FRs.NoBlink, 1 );
+			        Pop_LN_FRs.Blink(iFolder,:) = mean( LN_FRs.Blink, 1 );
+					Pop_LN_FRs.NoBlink(iFolder,:) = mean( LN_FRs.NoBlink, 1 );
+					Pop_Power.Blink(iFolder) = mean(Power.Blink);
+					Pop_Power.NoBlink(iFolder) = mean(Power.NoBlink);
+
+				end
+				FV_Power.Pop_L_FRs = Pop_L_FRs;
+				FV_Power.Pop_LN_FRs = Pop_LN_FRs;
+				FV_Power.Power = Pop_Power;
+				save( [destFolder, '\FV_Power_withRamp', num2str(withRamp), '.mat'], 'FV_Power' );
+			end
+			ShowFigure( 'Population', FV_Power.Pop_L_FRs, FV_Power.Pop_LN_FRs, FV_Power.Power );
+			saveas( gcf, [ destFolder, '\FV_Power_Population_withRamp', num2str(withRamp), '.fig' ] );
+			saveas( gcf, [ destFolder, '\FV_Power_Population_withRamp', num2str(withRamp), '.png' ] );
+
+			function ShowFigure( name, L_FRs, LN_FRs, Power )
+				set( figure, 'NumberTitle', 'off', 'name', sprintf( '%s | FR & Power Based on FreeViewing Data | withRamp:%d | w:%d | rSlope:%.2f | gainMin:%.2f', name, withRamp, w, rSlope, gainMin ), 'color', 'w' );
+				pause(0.1);
+				jf = get(handle(gcf),'javaframe');
+				jf.setMaximized(1);
+				pause(0.5);
+
+				subplot(2,3,1); hold on;
+				m = mean( L_FRs.NoBlink, 1 );
+				sd = std( L_FRs.NoBlink, 0, 1 );
+				plot( 0:T-100-1, m, 'color', 'b', 'LineWidth', LineWidth );
+				fill( [ 0:T-100-1, T-100-1:-1:0 ], [m-sd, m(end:-1:1)+sd], 'b', 'LineStyle', 'none', 'FaceColor', 'b', 'FaceAlpha', 0.5 );
+				set( gca, 'xLim', [0 T], 'YLim', [-20 20], 'YTick', [-20, 0, 20], 'FontSize', FontSize, 'LineWidth', LineWidth );
+				ylabel('Linear Response');
+				title('NoBlink Condition');
+				
+				subplot(2,3,2); hold on;
+				m = mean( L_FRs.Blink, 1 );
+				sd = std( L_FRs.Blink, 0, 1 );
+				plot( 0:T-100-1, m, 'color', 'r', 'LineWidth', LineWidth );
+				fill( [ 0:T-100-1, T-100-1:-1:0 ], [m-sd, m(end:-1:1)+sd], 'r', 'LineStyle', 'none', 'FaceColor', 'r', 'FaceAlpha', 0.5 );
+				set( gca, 'xLim', [0 T], 'YLim', [-20 20], 'YTick', [-20, 0, 20], 'FontSize', FontSize, 'LineWidth', LineWidth );
+				title('Blink Condition')
+
+				subplot(2,3,4); hold on;
+				m = mean( LN_FRs.NoBlink, 1 );
+				sd = std( LN_FRs.NoBlink, 0, 1 );
+				plot( 0:T-100-1, m, 'color', 'b', 'LineWidth', LineWidth );
+				fill( [ 0:T-100-1, T-100-1:-1:0 ], [m-sd, m(end:-1:1)+sd], 'b', 'LineStyle', 'none', 'FaceColor', 'b', 'FaceAlpha', 0.5 );
+				set( gca, 'xLim', [0 T], 'YLim', [0 50], 'FontSize', FontSize, 'LineWidth', LineWidth );
+				xlabel('Time (ms)');
+				ylabel('Linear-NonLinear Response');
+
+				subplot(2,3,5); hold on;
+				m = mean( LN_FRs.Blink, 1 );
+				sd = std( LN_FRs.Blink, 0, 1 );
+				plot( 0:T-100-1, m, 'color', 'r', 'LineWidth', LineWidth );
+				fill( [ 0:T-100-1, T-100-1:-1:0 ], [m-sd, m(end:-1:1)+sd], 'r', 'LineStyle', 'none', 'FaceColor', 'r', 'FaceAlpha', 0.5 );
+				set( gca, 'xLim', [0 T], 'YLim', [0 50], 'FontSize', FontSize, 'LineWidth', LineWidth );
+				xlabel('Time (ms)');
+
+				subplot(1,3,3); hold on;
+				nb = Power.NoBlink;
+				nb_m = mean(nb);
+				nb_sd = std(nb);
+				bar( 1, nb_m, 0.9, 'b', 'LineStyle', 'none', 'DisplayName', 'NoBlink' );
+				plot( [1,1], [-1,1] * nb_sd + nb_m, '-k', 'LineWidth', LineWidth );
+
+				b = Power.Blink;
+				b_m = mean(b);
+				b_sd = std(b);
+				bar( 3, b_m, 0.9, 'r', 'LineStyle', 'none', 'DisplayName', 'Blink' );
+				plot( [3,3], [-1,1] * b_sd + b_m, '-k', 'LineWidth', LineWidth );
+
+				[~, pVal, p] = ttest( nb, b, 'alpha', 0.05 );
+				ToolKit.ShowSignificance( [1, nb_sd + nb_m], [3, b_sd + b_m], pVal, 10, true, 'FontSize', 24 );
+
+				set( gca, 'XLim', [-1 5], 'XTick', [1, 3], 'XTickLabel', { 'NoBlink', 'Blink' }, 'XTickLabelRotation', 10, 'YScale', 'log', 'FontSize', FontSize, 'LineWidth', LineWidth, 'box', 'off' );
+				ylabel('Mean power of linear response');
+			end
+		end
+
+
+		function FV_PSD_V2( withRamp, destFolder )
+			%% PSD analysis using free viewing data
+			%  PSD of I_k_0(x,t) = a * sin( 2pi*k_0*x + eye(t) ) * g(t) + b * { g(t) - E[g(t)] }, where g(t) is the blink as a gain function
+			if( nargin() < 1 || isempty(withRamp) ) withRamp = true; end
+			if( nargin() < 2 || isempty(destFolder) ) destFolder = './'; end
+
+			SF = 0;
+			
+			FontSize = 22;
+			LineWidth = 2;
+
+			if( exist( [destFolder, '\PSD_FV_withRamp', num2str(withRamp), '.mat'], 'file' ) == 2 )
+				load( [destFolder, '\PSD_FV_withRamp', num2str(withRamp), '.mat'] );
+			else
+				folders = dir( 'F:\FreeViewingDatabase\*FV.mat' );
+				for( iFolder = size(folders,1) : -1 : 1 )
+					fprintf( 'Processing %s...\n', folders(iFolder).name );
+					vt = load( fullfile( folders(iFolder).folder, folders(iFolder).name ), 'Trials' );
+					Trials = vt.Trials;
+
+					hMain = figure( 'NumberTitle', 'off', 'name', [ folders(iFolder).name, ' | PSD Based on FreeViewing Data | withRamp: ', num2str(withRamp) ], 'color', 'w' );
+					pause(0.1);
+					jf = get(handle(gcf),'javaframe');
+					jf.setMaximized(1);
+					pause(0.5);
+
+					swPix = 1366;%2560;	% screen width in pixels
+					swMm = 600;		% screen width in mm
+					sDist = 1605;%1190;	% distance from screen to subject's eye in mm
+					PSX = floor(swPix/2)*2;
+					sFreqs = (0 : PSX/2) / (atand( PSX/swPix*swMm/2 / sDist ) * 2);
+
+					tRamp = 1024+512;
+					tPlateau = 1024;%+512;
+					a = 1;
+					b = 128;
+					if( withRamp )
+						ramp(1:tRamp) = ( 0 : tRamp-1 ) / (tRamp-1) * a;		% ramp of 1024+512 ms + plateau of 1024ms
+					end
+					PSZ = tRamp + tPlateau;
+					tFreqs = (0 : PSZ/2) / (PSZ/1000);
+
+					Win = 1;	% e.g., Hanning Window
+					U = 1;	% scale factor for Win
+					
+					sf = 3;
+					orientation = 0;
+
+					PS_D = zeros(PSX/2+1, PSZ/2+1);
+					PS_DB = zeros(PSX/2+1, PSZ/2+1);
+					for( iCon = 1 : 2 )
+						nValidTrials = size(Trials,2);
+						for( iTrial = 1 : size(Trials,2) )
+				    		% get eye drift
+							x = zeros( 1, sum([Trials(iTrial).drifts.duration]) );
+							y = zeros(size(x));
+							index = 0;
+							Trials(iTrial).blinks.start = [Trials(iTrial).blinks.start, Trials(iTrial).notracks.start];
+							Trials(iTrial).blinks.duration = [Trials(iTrial).blinks.duration, Trials(iTrial).notracks.duration];
+							for( i = 1 : size( Trials(iTrial).drifts.start, 2 ) )
+								idx = find( Trials(iTrial).drifts.start(i) == Trials(iTrial).blinks.start + Trials(iTrial).blinks.duration );
+								if( ~isempty(idx) )
+									st = Trials(iTrial).drifts.start(i) + 250;
+									dur = Trials(iTrial).drifts.duration(i) - 250;
+									if( dur < 1 )
+										continue;
+									else
+										Trials(iTrial).drifts.start(i) = st;
+										Trials(iTrial).drifts.duration(i) = dur;
+									end
+								end
+								idx = find( Trials(iTrial).drifts.start(i) + Trials(iTrial).drifts.duration(i) == Trials(iTrial).blinks.start );
+								if( ~isempty(idx) )
+									dur = Trials(iTrial).drifts.duration(i) - 50;
+									if( dur < 1 )
+										continue;
+									else
+										Trials(iTrial).drifts.duration(i) = dur;
+									end
+								end
+								x( (1 : Trials(iTrial).drifts.duration(i)) + index ) = Trials(iTrial).x.position( (0 : Trials(iTrial).drifts.duration(i)-1) + Trials(iTrial).drifts.start(i) );
+								y( (1 : Trials(iTrial).drifts.duration(i)) + index ) = Trials(iTrial).y.position( (0 : Trials(iTrial).drifts.duration(i)-1) + Trials(iTrial).drifts.start(i) );
+								if( index > 0 )
+									x( (1 : Trials(iTrial).drifts.duration(i)) + index ) = x( (1 : Trials(iTrial).drifts.duration(i)) + index ) - x(index+1) + x(index);
+									y( (1 : Trials(iTrial).drifts.duration(i)) + index ) = y( (1 : Trials(iTrial).drifts.duration(i)) + index ) - y(index+1) + y(index);
+								end
+								index = index + Trials(iTrial).drifts.duration(i);
+							end
+							x( index+1 : end ) = [];
+							y( index+1 : end ) = [];
+							if( size(x,2) < PSZ )
+								nValidTrials = nValidTrials - 1;
+								continue;
+							end
+							x = x(1:PSZ);
+							y = y(1:PSZ);
+
+							% rotate by -orientation
+							xx = x * cosd(orientation) + y * sind(orientation);
+							yy = y * cosd(orientation) - x * sind(orientation);
+
+							% center eye trace
+							x = x - mean(x);
+							y = y - mean(y);
+
+							if( iCon == 1 )		% drift
+								tPS = a^2 * QRad_fft2_SingleTrace(sFreqs, size(x,2), 0, x, y, Win)';
+								tPS(1,:) = 0;
+								PS_D = PS_D + tPS(:,1:size(PS_D,2));
+							else 	% drift + blink
+								% blink function
+								Gt = ones(1,PSZ);
+								Gt( (-100:100) + PSZ/2 ) = 0;
+								tPS = a^2 * QRad_fft2_SingleTrace(sFreqs, size(x,2), 0, x, y, Win, Gt)';
+								tPS(1,:) = b^2 * abs( fft( Gt - mean(Gt) ) ).^2;
+								PS_DB = PS_DB + tPS(:,1:size(PS_DB,2));
+							end
+							
+						end
+					end
+					PS_D( :, 2:end-1 ) = 2 * PS_D( :, 2:end-1 );	% convert to single sided
+					PS_D = PS_D / (PSZ*1000) / nValidTrials;	% fft^2 / (N*Fs); and average over all eye traces
+					PS_DB( :, 2:end-1 ) = 2 * PS_DB( :, 2:end-1 );	% convert to single sided
+					PS_DB = PS_DB / (PSZ*1000) / nValidTrials;	% fft^2 / (N*Fs); and average over all eye traces
+
+					subplot(2,2,1);
+					colormap('hot');
+					contour( sFreqs(1:end), tFreqs(2:end), PS_D(1:end,2:end)', 1000, 'LineStyle', 'none', 'fill', 'on' );
+					caxis( [ 0, max(max( [PS_D(1:end,2:end), PS_DB(1:end,2:end)] )) ] );
+					colorbar;
+					xlabel( 'Spatial frequency (cpd)' );
+					ylabel( 'Temporal frequency (Hz)' );
+					title('Drift');
+					set( gca, 'color', 'k', 'FontSize', FontSize, 'LineWidth', LineWidth, 'XScale', 'linear', 'YScale', 'log', 'XLim', [0 30], 'YLim', [tFreqs(2), 60], 'XTick', 0:10:30, 'YTick', [1 5 10 20 40] );
+
+					subplot(2,2,2);
+					colormap('hot');
+					contour( sFreqs(1:end), tFreqs(2:end), PS_DB(1:end,2:end)', 1000, 'LineStyle', 'none', 'fill', 'on' );
+					caxis( [ 0, max(max( [PS_D(1:end,2:end), PS_DB(1:end,2:end)] )) ] );
+					colorbar;
+					xlabel( 'Spatial frequency (cpd)' );
+					ylabel( 'Temporal frequency (Hz)' );
+					title('Drift + Blink');
+					set( gca, 'color', 'k', 'FontSize', FontSize, 'LineWidth', LineWidth, 'XScale', 'linear', 'YScale', 'log', 'XLim', [0 30], 'YLim', [tFreqs(2), 60], 'XTick', 0:10:30, 'YTick', [1 5 10 20 40] );
+
+					subplot(2,2,3);
+					hold on;
+					% colors = {'m', 'b', 'c', 'k'};
+					% f = [1 5 10];% [5 10 20];
+					h = [];
+					% for( iF = 1:size(f,2) )
+					% 	y = zeros(size(sFreqs));
+					% 	y = interp2( tFreqs, sFreqs, PS_D, f(iF), sFreqs, 'linear' );
+					% 	plot( sFreqs, y, '--', 'LineWidth', LineWidth, 'color', colors{iF}, 'DisplayName', sprintf( '%d Hz Drift', f(iF) ) );
+
+					% 	y = zeros(size(sFreqs));
+					% 	y = interp2( tFreqs, sFreqs, PS_DB, f(iF), sFreqs, 'linear' );
+					% 	plot( sFreqs, y, '-', 'LineWidth', LineWidth, 'color', colors{iF}, 'DisplayName', sprintf( '%d Hz Drift+Blink', f(iF) ) );
+					% end
+					% cut = 10;%min(tFreqs_D(end),tFreqs_DB(end));
+					h(end+1) = plot( sFreqs, sum( PS_D( :, 0 < tFreqs ), 2 ) * (tFreqs(2) - tFreqs(1)), '-', 'LineWidth', LineWidth, 'color', 'b', 'DisplayName', 'Drift Unweighted' );
+					h(end+1) = plot( sFreqs, sum( PS_DB( :, 0 < tFreqs ), 2 ) * (tFreqs(2) - tFreqs(1)), '-', 'LineWidth', LineWidth, 'color', 'r', 'DisplayName', 'Drift+Blink Unweighted' );
+					pCellGain = RGC.TemporalFreqGainProfile( tFreqs, 'p', 'center' ) - RGC.TemporalFreqGainProfile( tFreqs, 'p', 'surround' );
+					mCellGain = RGC.TemporalFreqGainProfile( tFreqs, 'm', 'on' );
+					weighted_D.P = ( (tFreqs(2) - tFreqs(1))^2 * PS_D(:, 0<tFreqs) * pCellGain(tFreqs>0)' )';
+					weighted_D.M = ( (tFreqs(2) - tFreqs(1))^2 * PS_D(:, 0<tFreqs) * mCellGain(tFreqs>0)' )';
+					weighted_DB.P = ( (tFreqs(2) - tFreqs(1))^2 * PS_DB(:, 0<tFreqs) * pCellGain(tFreqs>0)' )';
+					weighted_DB.M = ( (tFreqs(2) - tFreqs(1))^2 * PS_DB(:, 0<tFreqs) * mCellGain(tFreqs>0)' )';
+					h(end+1) = plot( sFreqs, weighted_D.P, '--', 'LineWidth', LineWidth, 'color', 'b', 'DisplayName', 'Drift P-cell' );
+					h(end+1) = plot( sFreqs, weighted_D.M, '-.', 'LineWidth', LineWidth, 'color', 'b', 'DisplayName', 'Drift M-cell' );
+					h(end+1) = plot( sFreqs, weighted_DB.P, '--', 'LineWidth', LineWidth, 'color', 'r', 'DisplayName', 'Drift+Blink P-cell' );
+					h(end+1) = plot( sFreqs, weighted_DB.M, '-.', 'LineWidth', LineWidth, 'color', 'r', 'DisplayName', 'Drift+Blink M-cell' );
+					% names = { num2str(f(1)), num2str(f(2)), num2str(f(3)), 'NonZero' };
+					% for( i = 1 : 4 )
+					% 	h(end+1) = plot( -1, -1, 'LineStyle', 'none', 'Marker', 'Square', 'MarkerFaceColor', colors{i}, 'MarkerEdgeColor', colors{i}, 'DisplayName', [names{i} ' Hz'] );
+					% end
+					% h(end+1) = plot( -1, -1, 'k--', 'LineWidth', LineWidth, 'DisplayName', 'Drift' );
+					% h(end+1) = plot( -1, -1, 'k', 'LineWidth', LineWidth, 'DisplayName', 'Drift+Blink' );
+					set( gca, 'FontSize', FontSize, 'LineWidth', LineWidth, 'XScale', 'linear', 'YScale', 'log', 'XLim', [sFreqs(1), 30], 'XTick', 0:10:30, 'XTickLabel', 0:10:30 );
+					plot( [3 3], get(gca,'YLim'), 'k:' );
+					set( legend(h), 'location', 'Southeast' );
+					xlabel('Spatial frequency (cpd)');
+					ylabel('Power spectral density');
+					title('Non-Zero Hz Temporal Power');
+
+					subplot(2,2,4);
+					hold on;
+					k = [0 3];
+					% colors = {'m', 'b'};
+					LineStyles = {'-', '--'};
+					h = [];
+					for( iK = 1:size(k,2) )
+						y = zeros(size(tFreqs));
+						y = interp2( tFreqs, sFreqs, PS_D, tFreqs, k(iK), 'linear' );
+						h(end+1) = plot( tFreqs, y, LineStyles{iK}, 'LineWidth', LineWidth, 'color', 'b', 'DisplayName', sprintf( '%d cpd Drift', k(iK) ) );
+
+						y = zeros(size(tFreqs));
+						y = interp2( tFreqs, sFreqs, PS_DB, tFreqs, k(iK), 'linear' );
+						h(end+1) = plot( tFreqs, y, LineStyles{iK}, 'LineWidth', LineWidth, 'color', 'r', 'DisplayName', sprintf( '%d cpd Drift+blink', k(iK) ) );
+					end
+					set( legend(h), 'location', 'Southeast' );
+					set( gca, 'FontSize', FontSize, 'LineWidth', LineWidth, 'XScale', 'log', 'YScale', 'log', 'XLim', [tFreqs(2), 60], 'XTick', [10 60], 'XTickLabel', [10 60] );
+					xlabel('Temporal frequency (Hz)');
+					ylabel('Power spectral density');
+					pause(10);
+					saveas( gcf, [ destFolder, '\FV_', folders(iFolder).name(1:end-4), '_withRamp', num2str(withRamp), '.fig' ] );
+					saveas( gcf, [ destFolder, '\FV_', folders(iFolder).name(1:end-4), '_withRamp', num2str(withRamp), '.png' ] );
+					close(gcf);
+
+					PSD_FV.PS_D(:,:,iFolder) = PS_D;
+					PSD_FV.sFreqs = sFreqs;
+					PSD_FV.tFreqs = tFreqs;
+					PSD_FV.PS_DB(:,:,iFolder) = PS_DB;
+					PSD_FV.weighted_D.P(iFolder,:) = weighted_D.P;
+					PSD_FV.weighted_D.M(iFolder,:) = weighted_D.M;
+					PSD_FV.weighted_DB.P(iFolder,:) = weighted_DB.P;
+					PSD_FV.weighted_DB.M(iFolder,:) = weighted_DB.M;
+					PSD_FV.pCellGain = pCellGain;
+					PSD_FV.mCellGain = mCellGain;
+				end
+
+				save( [destFolder, '\PSD_FV_withRamp', num2str(withRamp), '.mat'], 'PSD_FV' );
+			end
+
+			PS_D = PSD_FV.PS_D;
+			sFreqs = PSD_FV.sFreqs;
+			tFreqs = PSD_FV.tFreqs;
+			PS_DB = PSD_FV.PS_DB;
+			weighted_D = PSD_FV.weighted_D;
+			weighted_DB = PSD_FV.weighted_DB;
+			pCellGain = PSD_FV.pCellGain;
+			mCellGain = PSD_FV.mCellGain;
+
+			set( figure, 'NumberTitle', 'off', 'name', [ 'Mean of Population | PSD Based on FreeViewing Data | withRamp: ', num2str(withRamp) ], 'color', 'w' );
+			pause(0.1);
+			jf = get(handle(gcf),'javaframe');
+			jf.setMaximized(1);
+			pause(0.5);
+			subplot(2,2,1);
+			colormap('hot');
+			contour( sFreqs(2:end), tFreqs(2:end), mean( PS_D(2:end,2:end,:), 3 )', 1000, 'LineStyle', 'none', 'fill', 'on' );
+			caxis( [ 0, max(max( [mean( PS_D(2:end,2:end,:), 3 ) mean( PS_DB(2:end,2:end,:), 3 )] )) ] );
+			colorbar;
+			xlabel( 'Spatial frequency (cpd)' );
+			ylabel( 'Temporal frequency (Hz)' );
+			title('Drift');
+			set( gca, 'color', 'k', 'FontSize', FontSize, 'LineWidth', LineWidth, 'XScale', 'linear', 'YScale', 'log', 'XLim', [0 30], 'YLim', [tFreqs(2), 60], 'XTick', 0:10:30, 'YTick', [1 5 10 20 40] );
+
+			subplot(2,2,2);
+			colormap('hot');
+			contour( sFreqs(2:end), tFreqs(2:end), mean( PS_DB(2:end,2:end,:), 3 )', 1000, 'LineStyle', 'none', 'fill', 'on' );
+			caxis( [ 0, max(max( [mean( PS_D(2:end,2:end,:), 3 ) mean( PS_DB(2:end,2:end,:), 3 )] )) ] );
+			colorbar;
+			xlabel( 'Spatial frequency (cpd)' );
+			ylabel( 'Temporal frequency (Hz)' );
+			title('Drift + Blink');
+			set( gca, 'color', 'k', 'FontSize', FontSize, 'LineWidth', LineWidth, 'XScale', 'log', 'YScale', 'log', 'XLim', [sFreqs(1) 30], 'YLim', [tFreqs(2), 60], 'XTick', 0:10:30, 'YTick', [1 5 10 20 40] );
+
+			subplot(2,2,3);
+			hold on;
+			h = [];
+			h(end+1) = plot( sFreqs, sum( mean( PS_D( :, 0 < tFreqs, : ), 3 ), 2 ) * (tFreqs(2) - tFreqs(1)), '-', 'LineWidth', LineWidth, 'color', 'b', 'DisplayName', 'Drift Unweighted' );
+			h(end+1) = plot( sFreqs, sum( mean( PS_DB( :, 0 < tFreqs, : ), 3 ), 2 ) * (tFreqs(2) - tFreqs(1)), '-', 'LineWidth', LineWidth, 'color', 'r', 'DisplayName', 'Drift+Blink Unweighted' );
+			h(end+1) = plot( sFreqs, mean( weighted_D.P, 1 ), '--', 'LineWidth', LineWidth, 'color', 'b', 'DisplayName', 'Drift P-cell' );
+			h(end+1) = plot( sFreqs, mean( weighted_D.M, 1 ), '-.', 'LineWidth', LineWidth, 'color', 'b', 'DisplayName', 'Drift M-cell' );
+			h(end+1) = plot( sFreqs, mean( weighted_DB.P, 1 ), '--', 'LineWidth', LineWidth, 'color', 'r', 'DisplayName', 'Drift+Blink P-cell' );
+			h(end+1) = plot( sFreqs, mean( weighted_DB.M, 1 ), '-.', 'LineWidth', LineWidth, 'color', 'r', 'DisplayName', 'Drift+Blink M-cell' );
+			set( gca, 'FontSize', FontSize, 'LineWidth', LineWidth, 'XScale', 'linear', 'YScale', 'log', 'XLim', [sFreqs(1), 30], 'XTick', 0:10:30, 'XTickLabel', 0:10:30 );
+			plot( [3 3], get(gca,'YLim'), 'k:' );
+			set( legend(h), 'location', 'Southeast' );
+			xlabel('Spatial frequency (cpd)');
+			ylabel('Power spectral density');
+			title('Non-Zero Hz Temporal Power');
+
+			subplot(2,2,4);
+			hold on;
+			k = [0 3];
+			LineStyles = {'-', '--'};
+			h = [];
+			for( iK = 1:size(k,2) )
+				y = zeros(size(tFreqs));
+				y = interp2( tFreqs, sFreqs, mean( PS_D, 3 ), tFreqs, k(iK), 'linear' );
+				h(end+1) = plot( tFreqs, y, LineStyles{iK}, 'LineWidth', LineWidth, 'color', 'b', 'DisplayName', sprintf( '%d cpd Drift', k(iK) ) );
+
+				y = zeros(size(tFreqs));
+				y = interp2( tFreqs, sFreqs, mean( PS_DB, 3 ), tFreqs, k(iK), 'linear' );
+				h(end+1) = plot( tFreqs, y, LineStyles{iK}, 'LineWidth', LineWidth, 'color', 'r', 'DisplayName', sprintf( '%d cpd Drift+blink', k(iK) ) );
+			end
+			set( legend(h), 'location', 'Southeast' );
+			set( gca, 'FontSize', FontSize, 'LineWidth', LineWidth, 'XScale', 'linear', 'YScale', 'log', 'XLim', [tFreqs(1), 60], 'XTick', 0:10:60, 'XTickLabel', 0:10:60 );
+			xlabel('Temporal frequency (Hz)');
+			ylabel('Power spectral density');
+			pause(3);
+			saveas( gcf, [ destFolder, '\FV_Population_Mean_withRamp', num2str(withRamp), '.fig' ] );
+			saveas( gcf, [ destFolder, '\FV_Population_Mean_withRamp', num2str(withRamp), '.png' ] );
+
+
+			set( figure, 'NumberTitle', 'off', 'name', [ 'Population | PSD Based on FreeViewing Data | withRamp: ', num2str(withRamp) ], 'color', 'w' );
+			pause(0.1);
+			jf = get(handle(gcf),'javaframe');
+			jf.setMaximized(1);
+			pause(0.5);
+			
+			P.D = interp2( sFreqs, 1:size(PS_D,3), weighted_D.P, 3, 1:size(PS_D,3), 'linear' );
+			P.DB_3 = interp2( sFreqs, 1:size(PS_D,3), weighted_DB.P, 3, 1:size(PS_D,3), 'linear' );
+			P.DB_0 = weighted_DB.P(:,1);
+			M.D = interp2( sFreqs, 1:size(PS_D,3), weighted_D.M, 3, 1:size(PS_D,3), 'linear' );
+			M.DB_3 = interp2( sFreqs, 1:size(PS_D,3), weighted_DB.M, 3, 1:size(PS_D,3), 'linear' );
+			M.DB_0 = weighted_DB.M(:,1);
+			Unweighted.D = interp2( sFreqs, 1:size(PS_D,3), reshape( sum( PS_D(:,2:end,:), 2 ) * (tFreqs(2) - tFreqs(1)), size(PS_D,1), [] )', 3, 1:size(PS_D,3), 'linear' );
+			Unweighted.DB_3 = interp2( sFreqs, 1:size(PS_D,3), reshape( sum( PS_DB(:,2:end,:), 2 ) * (tFreqs(2) - tFreqs(1)), size(PS_D,1), [] )', 3, 1:size(PS_D,3), 'linear' );
+			Unweighted.DB_0 = reshape( sum( PS_DB(1,2:end,:), 2 ) * (tFreqs(2) - tFreqs(1)), 1, [] )';
+			
+			[~, pVal.P_DB_3, CI.P] = ttest( P.D, P.DB_3, 'alpha', 0.05 );	% P-cell, D_3 VS DB_3
+			[~, pVal.P_DB_0, CI.P] = ttest( P.D, P.DB_0, 'alpha', 0.05 );	% P-cell, D_3 VS DB_0
+			[~, pVal.M_DB_3, CI.P] = ttest( M.D, M.DB_3, 'alpha', 0.05 );	% M-cell, D_3 VS DB_3
+			[~, pVal.M_DB_0, CI.P] = ttest( M.D, M.DB_0, 'alpha', 0.05 );	% M-cell, D_3 VS DB_0
+			[~, pVal.U_DB_3, CI.P] = ttest( Unweighted.D, Unweighted.DB_3, 'alpha', 0.05 );	% Unweighted, D_3 VS DB_3
+			[~, pVal.U_DB_0, CI.P] = ttest( Unweighted.D, Unweighted.DB_0, 'alpha', 0.05 )	% Unweighted, D_3 VS DB_0
+			hold on; h = [];
+			h(1) = bar( 1, mean( P.D ), 0.9, 'b', 'LineStyle', 'none', 'DisplayName', 'Drift' );
+			plot( [1,1], [-1,1]*std(P.D)+mean(P.D), '-k', 'LineWidth', LineWidth );
+			h(2) = bar( 2, mean(P.DB_3), 0.9, 'r', 'LineStyle', 'none', 'DisplayName', 'Drift+Blink, 3cpd' );
+			plot( [2,2], [-1,1]*std(P.DB_3)+mean(P.DB_3), '-k', 'LineWidth', LineWidth );
+			h(3) = bar( 3, mean(P.DB_0), 0.9, 'FaceColor', [0.5 0 0], 'LineStyle', 'none', 'DisplayName', 'Drift+Blink, 0cpd' );
+			plot( [3,3], [-1,1]*std(P.DB_0)+mean(P.DB_0), '-k', 'LineWidth', LineWidth );
+			ToolKit.ShowSignificance( [1, std(P.D)+mean(P.D)], [2, std(P.DB_3)+mean(P.DB_3)], pVal.P_DB_3, 0.02, true, 'FontSize', 24 );
+			ToolKit.ShowSignificance( [1, std(P.D)+mean(P.D)], [3, std(P.DB_0)+mean(P.DB_0)], pVal.P_DB_0, 0.02, true, 'FontSize', 24 );
+
+			bar( 5, mean( M.D ), 0.9, 'b', 'LineStyle', 'none', 'DisplayName', 'Drift' );
+			plot( [5,5], [-1,1]*std(M.D)+mean(M.D), '-k', 'LineWidth', LineWidth );
+			bar( 6, mean(M.DB_3), 0.9, 'r', 'LineStyle', 'none', 'DisplayName', 'Drift+Blink, 3cpd' );
+			plot( [6,6], [-1,1]*std(M.DB_3)+mean(M.DB_3), '-k', 'LineWidth', LineWidth );
+			bar( 7, mean(M.DB_0), 0.9, 'FaceColor', [0.5 0 0], 'LineStyle', 'none', 'DisplayName', 'Drift+Blink, 0cpd' );
+			plot( [7,7], [-1,1]*std(M.DB_0)+mean(M.DB_0), '-k', 'LineWidth', LineWidth );
+			ToolKit.ShowSignificance( [5, std(M.D)+mean(M.D)], [6, std(M.DB_3)+mean(M.DB_3)], pVal.M_DB_3, 0.02, true, 'FontSize', 24 );
+			ToolKit.ShowSignificance( [5, std(M.D)+mean(M.D)], [7, std(M.DB_0)+mean(M.DB_0)], pVal.M_DB_0, 0.02, true, 'FontSize', 24 );
+
+			bar( 9, mean( Unweighted.D ), 0.9, 'b', 'LineStyle', 'none', 'DisplayName', 'Drift' );
+			plot( [9,9], [-1,1]*std(Unweighted.D)+mean(Unweighted.D), '-k', 'LineWidth', LineWidth );
+			bar( 10, mean(Unweighted.DB_3), 0.9, 'r', 'LineStyle', 'none', 'DisplayName', 'Drift+Blink, 3cpd' );
+			plot( [10,10], [-1,1]*std(Unweighted.DB_3)+mean(Unweighted.DB_3), '-k', 'LineWidth', LineWidth );
+			bar( 11, mean(Unweighted.DB_0), 0.9, 'FaceColor', [0.5 0 0], 'LineStyle', 'none', 'DisplayName', 'Drift+Blink, 0cpd' );
+			plot( [11,11], [-1,1]*std(Unweighted.DB_0)+mean(Unweighted.DB_0), '-k', 'LineWidth', LineWidth );
+			ToolKit.ShowSignificance( [9, std(Unweighted.D)+mean(Unweighted.D)], [10, std(Unweighted.DB_3)+mean(Unweighted.DB_3)], pVal.M_DB_3, 0.02, true, 'FontSize', 24 );
+			ToolKit.ShowSignificance( [9, std(Unweighted.D)+mean(Unweighted.D)], [11, std(Unweighted.DB_0)+mean(Unweighted.DB_0)], pVal.M_DB_0, 0.02, true, 'FontSize', 24 );
+
+			set( gca, 'XLim', [-1 13], 'XTick', [2, 6, 10], 'XTickLabel', { 'P Cell', 'M Cell', 'Unweighted' }, 'XTickLabelRotation', 10, 'YScale', 'log', 'FontSize', FontSize, 'LineWidth', LineWidth, 'box', 'off' );
+			title( 'PSD', 'FontSize', 20 );
+			ylabel('PSD');
+			set( legend(h), 'location', 'northeastout', 'fontsize', 18 );
+			saveas( gcf, [ destFolder, '\FV_Population_withRamp', num2str(withRamp), '.fig' ] );
+			saveas( gcf, [ destFolder, '\FV_Population_withRamp', num2str(withRamp), '.png' ] );
+		end
+
+
+		function FV_PSD_old( withRamp, destFolder )
 			%% PSD analysis using free viewing data
 			if( nargin() < 1 || isempty(withRamp) ) withRamp = true; end
 			if( nargin() < 2 || isempty(destFolder) ) destFolder = './'; end
@@ -1826,9 +2451,8 @@ classdef BlinkTransient < handle
 				folders = dir( 'F:\FreeViewingDatabase\*FV.mat' );
 				for( iFolder = size(folders,1) : -1 : 1 )
 					fprintf( 'Processing %s...\n', folders(iFolder).name );
-					vt = load( fullfile( folders(iFolder).folder, folders(iFolder).name ), 'vt' );
-					vt = [vt.vt];
-					Trials = [vt{:}];
+					vt = load( fullfile( folders(iFolder).folder, folders(iFolder).name ), 'Trials' );
+					Trials = vt.Trials;
 
 					set( figure, 'NumberTitle', 'off', 'name', [ folders(iFolder).name, ' | PSD Based on FreeViewing Data | withRamp: ', num2str(withRamp) ], 'color', 'w' );
 					pause(0.1);
@@ -1841,6 +2465,59 @@ classdef BlinkTransient < handle
 					PS_D = reshape( sum( PS_D, 2 ), size(PS_D,1), [] );
 					PS_DB = reshape( sum( PS_DB, 2 ), size(PS_DB,1), [] );
 
+					subplot(2,4,7);
+					hold on;
+					colors = {'m', 'b', 'c', 'k'};
+					f = [1 5 10];% [5 10 20];
+					h = [];
+					for( iF = 1:size(f,2) )
+						y = zeros(size(sFreqs_D));
+						y = interp2( tFreqs_D, sFreqs_D, PS_D, f(iF), sFreqs_D, 'linear' );
+						plot( sFreqs_D, y, '--', 'LineWidth', LineWidth, 'color', colors{iF}, 'DisplayName', sprintf( '%d Hz Drift', f(iF) ) );
+
+						y = zeros(size(sFreqs_DB));
+						y = interp2( tFreqs_DB, sFreqs_DB, PS_DB, f(iF), sFreqs_DB, 'linear' );
+						plot( sFreqs_DB, y, '-', 'LineWidth', LineWidth, 'color', colors{iF}, 'DisplayName', sprintf( '%d Hz Drift+blink', f(iF) ) );
+					end
+					cut = 10;%min(tFreqs_D(end),tFreqs_DB(end));
+					% plot( sFreqs_D, sum( PS_D(:,2:end), 2 ) * (tFreqs_D(2) - tFreqs_D(1)), '--', 'LineWidth', LineWidth, 'color', colors{4}, 'DisplayName', 'NonZero Hz Drift' );
+					plot( sFreqs_D, sum( PS_D( :, 1 < tFreqs_D & tFreqs_D < cut ), 2 ) * (tFreqs_D(2) - tFreqs_D(1)), '--', 'LineWidth', LineWidth, 'color', colors{4}, 'DisplayName', 'NonZero Hz Drift' );
+					% plot( sFreqs_B, sum( PS_B(:,2:end), 2 ) * (tFreqs_B(2) - tFreqs_B(1)), ':', 'LineWidth', LineWidth, 'color', colors{4}, 'DisplayName', 'NonZero Hz Blink' );
+					% plot( sFreqs_DB, sum( PS_DB(:,2:end), 2 ) * (tFreqs_DB(2) - tFreqs_DB(1)), '-', 'LineWidth', LineWidth, 'color', colors{4}, 'DisplayName', 'NonZero Hz Drift+blink' );
+					plot( sFreqs_DB, sum( PS_DB( :, 1 < tFreqs_DB & tFreqs_DB < cut ), 2 ) * (tFreqs_DB(2) - tFreqs_DB(1)), '-', 'LineWidth', LineWidth, 'color', colors{4}, 'DisplayName', 'NonZero Hz Drift+blink' );
+					
+					names = { num2str(f(1)), num2str(f(2)), num2str(f(3)), 'NonZero' };
+					for( i = 1 : 4 )
+						h(end+1) = plot( -1, -1, 'LineStyle', 'none', 'Marker', 'Square', 'MarkerFaceColor', colors{i}, 'MarkerEdgeColor', colors{i}, 'DisplayName', [names{i} ' Hz'] );
+					end
+					h(end+1) = plot( -1, -1, 'k--', 'LineWidth', LineWidth, 'DisplayName', 'Drift' );
+					% h(end+1) = plot( -1, -1, 'k:', 'LineWidth', LineWidth, 'DisplayName', 'Blink' );
+					h(end+1) = plot( -1, -1, 'k', 'LineWidth', LineWidth, 'DisplayName', 'Drift+blink' );
+					set( gca, 'FontSize', FontSize, 'LineWidth', LineWidth, 'XScale', 'log', 'YScale', 'log', 'XLim', [sFreqs_D(2), 20], 'XTick', [1 10], 'XTickLabel', [1 10] );
+					plot( [3 3], get(gca,'YLim'), 'k:' );
+					set( legend(h), 'location', 'Southeast' );
+					xlabel('Spatial frequency (cpd)');
+					ylabel('Power spectral density');
+
+					subplot(2,4,8);
+					hold on;
+					k = [3];
+					colors = {'m', 'b'};
+					h = [];
+					for( iK = 1:size(k,2) )
+						y = zeros(size(tFreqs_D));
+						y = interp2( tFreqs_D, sFreqs_D, PS_D, tFreqs_D, k(iK), 'linear' );
+						h(end+1) = plot( tFreqs_D, y, '--', 'LineWidth', LineWidth, 'color', colors{iK}, 'DisplayName', sprintf( '%d cpd Drift', k(iK) ) );
+
+						y = zeros(size(tFreqs_DB));
+						y = interp2( tFreqs_DB, sFreqs_DB, PS_DB, tFreqs_DB, k(iK), 'linear' );
+						h(end+1) = plot( tFreqs_DB, y, '-', 'LineWidth', LineWidth, 'color', colors{iK}, 'DisplayName', sprintf( '%d cpd Drift+blink', k(iK) ) );
+					end
+					set( legend(h), 'location', 'Southeast' );
+					set( gca, 'FontSize', FontSize, 'LineWidth', LineWidth, 'XScale', 'log', 'YScale', 'log', 'XLim', [tFreqs_D(2), 60], 'XTick', [1 10 40], 'XTickLabel', [1 10 40] );
+					xlabel('Temporal frequency (Hz)');
+					ylabel('Power spectral density');
+
 					pCellGain = RGC.TemporalFreqGainProfile( tFreqs_D, 'p', 'center' ) - RGC.TemporalFreqGainProfile( tFreqs_D, 'p', 'surround' );
 					mCellGain = RGC.TemporalFreqGainProfile( tFreqs_D, 'm', 'on' );
 					weighted_D.P = interp2( tFreqs_D, sFreqs_D, PS_D, tFreqs_D(tFreqs_D>0), SF, 'linear' ) * pCellGain(tFreqs_D>0)';
@@ -1848,24 +2525,24 @@ classdef BlinkTransient < handle
 					weighted_DB.P = interp2( tFreqs_DB, sFreqs_DB, PS_DB, tFreqs_DB(tFreqs_DB>0), SF, 'linear' ) * pCellGain(tFreqs_DB>0)';
 					weighted_DB.M = interp2( tFreqs_DB, sFreqs_DB, PS_DB, tFreqs_DB(tFreqs_DB>0), SF, 'linear' ) * mCellGain(tFreqs_DB>0)';
 
-					subplot(2,4,7); hold on;
-					h(2) = plot( tFreqs_D(tFreqs_D>0), pCellGain(tFreqs_D>0), 'LineWidth', LineWidth, 'color', [0.5 0.5 0.5], 'DisplayName', 'P Cell' );
-					h(1) = plot( tFreqs_D(tFreqs_D>0), mCellGain(tFreqs_D>0), 'LineWidth', LineWidth, 'color', 'k', 'DisplayName', 'M Cell' );
-					set( gca, 'FontSize', FontSize, 'LineWidth', LineWidth, 'XScale', 'log', 'YScale', 'log', 'XLim', [tFreqs_D(2), 70], 'XTick', [1 10 40], 'XTickLabel', [1 10 40], 'box', 'off' );
-					title( 'Cell sensitivity', 'FontSize', 20 );
-					xlabel( 'Temporal frequency (Hz)' );
-					ylabel( 'Gain' );
-					set( legend(h), 'location', 'southwest', 'FontSize', 18 );
+					% subplot(2,4,7); hold on;
+					% h(2) = plot( tFreqs_D(tFreqs_D>0), pCellGain(tFreqs_D>0), 'LineWidth', LineWidth, 'color', [0.5 0.5 0.5], 'DisplayName', 'P Cell' );
+					% h(1) = plot( tFreqs_D(tFreqs_D>0), mCellGain(tFreqs_D>0), 'LineWidth', LineWidth, 'color', 'k', 'DisplayName', 'M Cell' );
+					% set( gca, 'FontSize', FontSize, 'LineWidth', LineWidth, 'XScale', 'log', 'YScale', 'log', 'XLim', [tFreqs_D(2), 70], 'XTick', [1 10 40], 'XTickLabel', [1 10 40], 'box', 'off' );
+					% title( 'Cell sensitivity', 'FontSize', 20 );
+					% xlabel( 'Temporal frequency (Hz)' );
+					% ylabel( 'Gain' );
+					% set( legend(h), 'location', 'southwest', 'FontSize', 18 );
 					
-					subplot(2,4,8); hold on; h = [];
-					h(1) = bar( 1, weighted_D.P, 1, 'b', 'LineStyle', 'none', 'DisplayName', 'drift' );
-					h(2) = bar( 2, weighted_DB.P, 1, 'r', 'LineStyle', 'none', 'DisplayName', 'drift+blink' );
-					bar( 5, weighted_D.M, 1, 'b', 'LineStyle', 'none', 'DisplayName', 'drift' );
-					bar( 6, weighted_DB.M, 1, 'r', 'LineStyle', 'none', 'DisplayName', 'drift+blink' );
-					set( gca, 'XLim', [-1 8], 'XTick', [1.5 5.5], 'XTickLabel', { 'P Cell', 'M Cell' }, 'XTickLabelRotation', 10, 'YScale', 'log', 'FontSize', FontSize, 'LineWidth', LineWidth, 'box', 'off' );
-					title( 'Weighted PSD', 'FontSize', 20 );
-					ylabel('PSD');
-					set( legend(h), 'location', 'northwest', 'fontsize', 18 );
+					% subplot(2,4,8); hold on; h = [];
+					% h(1) = bar( 1, weighted_D.P, 1, 'b', 'LineStyle', 'none', 'DisplayName', 'drift' );
+					% h(2) = bar( 2, weighted_DB.P, 1, 'r', 'LineStyle', 'none', 'DisplayName', 'drift+blink' );
+					% bar( 5, weighted_D.M, 1, 'b', 'LineStyle', 'none', 'DisplayName', 'drift' );
+					% bar( 6, weighted_DB.M, 1, 'r', 'LineStyle', 'none', 'DisplayName', 'drift+blink' );
+					% set( gca, 'XLim', [-1 8], 'XTick', [1.5 5.5], 'XTickLabel', { 'P Cell', 'M Cell' }, 'XTickLabelRotation', 10, 'YScale', 'log', 'FontSize', FontSize, 'LineWidth', LineWidth, 'box', 'off' );
+					% title( 'Weighted PSD', 'FontSize', 20 );
+					% ylabel('PSD');
+					% set( legend(h), 'location', 'northwest', 'fontsize', 18 );
 
 					PSD_FV.PS_D{iFolder} = PS_D;
 					PSD_FV.sFreqs_D = sFreqs_D;
@@ -1903,36 +2580,307 @@ classdef BlinkTransient < handle
 			if( pVal.M < 0.1 && pVal.M > 0.05 ) isShowValue.M = true;
 			else isShowValue.M = false; end
 
-			set( figure, 'NumberTitle', 'off', 'name', [ 'Population | PSD Based on FreeViewing Data | withRamp: ', num2str(withRamp)' ], 'color', 'w' );
-			subplot(1,2,1); hold on;
-			h(2) = plot( tFreqs_D(tFreqs_D>0), pCellGain(tFreqs_D>0), 'LineWidth', LineWidth, 'color', [0.5 0.5 0.5], 'DisplayName', 'P Cell' );
-			h(1) = plot( tFreqs_D(tFreqs_D>0), mCellGain(tFreqs_D>0), 'LineWidth', LineWidth, 'color', 'k', 'DisplayName', 'M Cell' );
-			set( gca, 'FontSize', FontSize, 'LineWidth', LineWidth, 'XScale', 'log', 'YScale', 'log', 'XLim', [tFreqs_D(2), 70], 'XTick', [1 10 40], 'XTickLabel', [1 10 40], 'box', 'off' );
-			title( 'Cell sensitivity', 'FontSize', 20 );
-			xlabel( 'Temporal frequency (Hz)' );
-			ylabel( 'Gain' );
-			set( legend(h), 'location', 'southwest', 'FontSize', 18 );
+
+			for( weighted = [true false] )
+
+				if(~weighted)
+					for( i = 1 : size(PS_D,2) )
+						weighted_D(i).P = sum( interp2( tFreqs_D, sFreqs_D, PS_D{i}, tFreqs_D(tFreqs_D>0), SF, 'linear' ) ) * (tFreqs_D(2) - tFreqs_D(1));
+						weighted_D(i).M = sum( interp2( tFreqs_D, sFreqs_D, PS_D{i}, tFreqs_D(tFreqs_D>0), SF, 'linear' ) ) * (tFreqs_D(2) - tFreqs_D(1));
+						weighted_DB(i).P = sum( interp2( tFreqs_DB, sFreqs_DB, PS_DB{i}, tFreqs_DB(tFreqs_DB>0), SF, 'linear' ) ) * (tFreqs_DB(2) - tFreqs_DB(1));
+						weighted_DB(i).M = sum( interp2( tFreqs_DB, sFreqs_DB, PS_DB{i}, tFreqs_DB(tFreqs_DB>0), SF, 'linear' ) ) * (tFreqs_DB(2) - tFreqs_DB(1));
+					end
+				else
+					weighted_D = PSD_FV.weighted_D;
+					weighted_DB = PSD_FV.weighted_DB;
+				end
+				[~, pVal.P, CI.P] = ttest( [weighted_D.P], [weighted_DB.P], 'alpha', 0.05 );
+				[~, pVal.M, CI.M] = ttest( [weighted_D.M], [weighted_DB.M], 'alpha', 0.05 )
+				if( pVal.P < 0.1 && pVal.P > 0.05 ) isShowValue.P = true;
+				else isShowValue.P = false; end
+				if( pVal.M < 0.1 && pVal.M > 0.05 ) isShowValue.M = true;
+				else isShowValue.M = false; end
+
+				set( figure, 'NumberTitle', 'off', 'name', [ 'Population | PSD Based on FreeViewing Data | withRamp: ', num2str(withRamp), ' | weighted: ', num2str(weighted) ], 'color', 'w' );
+				pause(0.1);
+				jf = get(handle(gcf),'javaframe');
+				jf.setMaximized(1);
+				pause(0.5);
+				if(weighted)
+					subplot(1,2,1); hold on;
+					h(2) = plot( tFreqs_D(tFreqs_D>0), pCellGain(tFreqs_D>0), 'LineWidth', LineWidth, 'color', [0.5 0.5 0.5], 'DisplayName', 'P Cell' );
+					h(1) = plot( tFreqs_D(tFreqs_D>0), mCellGain(tFreqs_D>0), 'LineWidth', LineWidth, 'color', 'k', 'DisplayName', 'M Cell' );
+					set( gca, 'FontSize', FontSize, 'LineWidth', LineWidth, 'XScale', 'log', 'YScale', 'log', 'XLim', [tFreqs_D(2), 70], 'XTick', [1 10 40], 'XTickLabel', [1 10 40], 'box', 'off' );
+					title( 'Cell sensitivity', 'FontSize', 20 );
+					xlabel( 'Temporal frequency (Hz)' );
+					ylabel( 'Gain' );
+					set( legend(h), 'location', 'southwest', 'FontSize', 18 );
+					
+					subplot(1,2,2);
+				end
+				hold on; h = [];
+				h(1) = bar( 1, mean( [weighted_D.P] ), 1, 'b', 'LineStyle', 'none', 'DisplayName', 'drift' );
+				plot( [1,1], [-1,1]*std([weighted_D.P])+mean([weighted_D.P]), '-k', 'LineWidth', LineWidth );
+				h(2) = bar( 2, mean( [weighted_DB.P] ), 1, 'r', 'LineStyle', 'none', 'DisplayName', 'drift+blink' );
+				plot( [2,2], [-1,1]*std([weighted_DB.P])+mean([weighted_DB.P]), '-k', 'LineWidth', LineWidth );
+				ToolKit.ShowSignificance( [1, std([weighted_D.P]+mean([weighted_D.P]))], [2, std([weighted_DB.P]+mean([weighted_DB.P]))], pVal.P, 0.02, isShowValue.P, 'FontSize', 24 );
+
+				bar( 5, mean( [weighted_D.M] ), 1, 'b', 'LineStyle', 'none', 'DisplayName', 'drift' );
+				plot( [5,5], [-1,1]*std([weighted_D.M])+mean([weighted_D.M]), '-k', 'LineWidth', LineWidth );
+				bar( 6, mean( [weighted_DB.M] ), 1, 'r', 'LineStyle', 'none', 'DisplayName', 'drift+blink' );
+				plot( [6,6], [-1,1]*std([weighted_DB.M])+mean([weighted_DB.M]), '-k', 'LineWidth', LineWidth );
+				ToolKit.ShowSignificance( [5, std([weighted_D.M]+mean([weighted_D.M]))], [6, std([weighted_DB.M]+mean([weighted_DB.M]))], pVal.M, 0.02, isShowValue.M, 'FontSize', 24 );
+
+				set( gca, 'XLim', [-1 8], 'XTick', [1.5 5.5], 'XTickLabel', { 'P Cell', 'M Cell' }, 'XTickLabelRotation', 10, 'YScale', 'log', 'FontSize', FontSize, 'LineWidth', LineWidth, 'box', 'off' );
+				title( 'PSD', 'FontSize', 20 );
+				ylabel('PSD');
+				set( legend(h), 'location', 'northeastout', 'fontsize', 18 );
+
+				saveas( gcf, [ destFolder, '\FV_Population_withRamp', num2str(withRamp), '_weighted', num2str(weighted) '.fig' ] );
+				saveas( gcf, [ destFolder, '\FV_Population_withRamp', num2str(withRamp), '_weighted', num2str(weighted) '.png' ] );
+
+			end
+
+			% set( figure, 'NumberTitle', 'off', 'name', [ 'Population | PSD Based on FreeViewing Data | withRamp: ', num2str(withRamp) ], 'color', 'w' );
+			% subplot(1,2,1); hold on;
+			% h(2) = plot( tFreqs_D(tFreqs_D>0), pCellGain(tFreqs_D>0), 'LineWidth', LineWidth, 'color', [0.5 0.5 0.5], 'DisplayName', 'P Cell' );
+			% h(1) = plot( tFreqs_D(tFreqs_D>0), mCellGain(tFreqs_D>0), 'LineWidth', LineWidth, 'color', 'k', 'DisplayName', 'M Cell' );
+			% set( gca, 'FontSize', FontSize, 'LineWidth', LineWidth, 'XScale', 'log', 'YScale', 'log', 'XLim', [tFreqs_D(2), 70], 'XTick', [1 10 40], 'XTickLabel', [1 10 40], 'box', 'off' );
+			% title( 'Cell sensitivity', 'FontSize', 20 );
+			% xlabel( 'Temporal frequency (Hz)' );
+			% ylabel( 'Gain' );
+			% set( legend(h), 'location', 'southwest', 'FontSize', 18 );
 			
-			subplot(1,2,2); hold on; h = [];
-			h(1) = bar( 1, mean( [weighted_D.P] ), 1, 'b', 'LineStyle', 'none', 'DisplayName', 'drift' );
-			plot( [1,1], [-1,1]*std([weighted_D.P])+mean([weighted_D.P]), '-k', 'LineWidth', LineWidth );
-			h(2) = bar( 2, mean( [weighted_DB.P] ), 1, 'r', 'LineStyle', 'none', 'DisplayName', 'drift+blink' );
-			plot( [2,2], [-1,1]*std([weighted_DB.P])+mean([weighted_DB.P]), '-k', 'LineWidth', LineWidth );
-			ToolKit.ShowSignificance( [1, std([weighted_D.P]+mean([weighted_D.P]))], [2, std([weighted_DB.P]+mean([weighted_DB.P]))], pVal.P, 0.02, isShowValue.P, 'FontSize', 24 );
+			% subplot(1,2,2); hold on; h = [];
+			% h(1) = bar( 1, mean( [weighted_D.P] ), 1, 'b', 'LineStyle', 'none', 'DisplayName', 'drift' );
+			% plot( [1,1], [-1,1]*std([weighted_D.P])+mean([weighted_D.P]), '-k', 'LineWidth', LineWidth );
+			% h(2) = bar( 2, mean( [weighted_DB.P] ), 1, 'r', 'LineStyle', 'none', 'DisplayName', 'drift+blink' );
+			% plot( [2,2], [-1,1]*std([weighted_DB.P])+mean([weighted_DB.P]), '-k', 'LineWidth', LineWidth );
+			% ToolKit.ShowSignificance( [1, std([weighted_D.P]+mean([weighted_D.P]))], [2, std([weighted_DB.P]+mean([weighted_DB.P]))], pVal.P, 0.02, isShowValue.P, 'FontSize', 24 );
 
-			bar( 5, mean( [weighted_D.M] ), 1, 'b', 'LineStyle', 'none', 'DisplayName', 'drift' );
-			plot( [5,5], [-1,1]*std([weighted_D.M])+mean([weighted_D.M]), '-k', 'LineWidth', LineWidth );
-			bar( 6, mean( [weighted_DB.M] ), 1, 'r', 'LineStyle', 'none', 'DisplayName', 'drift+blink' );
-			plot( [6,6], [-1,1]*std([weighted_DB.M])+mean([weighted_DB.M]), '-k', 'LineWidth', LineWidth );
-			ToolKit.ShowSignificance( [5, std([weighted_D.M]+mean([weighted_D.M]))], [6, std([weighted_DB.M]+mean([weighted_DB.M]))], pVal.M, 0.02, isShowValue.M, 'FontSize', 24 );
+			% bar( 5, mean( [weighted_D.M] ), 1, 'b', 'LineStyle', 'none', 'DisplayName', 'drift' );
+			% plot( [5,5], [-1,1]*std([weighted_D.M])+mean([weighted_D.M]), '-k', 'LineWidth', LineWidth );
+			% bar( 6, mean( [weighted_DB.M] ), 1, 'r', 'LineStyle', 'none', 'DisplayName', 'drift+blink' );
+			% plot( [6,6], [-1,1]*std([weighted_DB.M])+mean([weighted_DB.M]), '-k', 'LineWidth', LineWidth );
+			% ToolKit.ShowSignificance( [5, std([weighted_D.M]+mean([weighted_D.M]))], [6, std([weighted_DB.M]+mean([weighted_DB.M]))], pVal.M, 0.02, isShowValue.M, 'FontSize', 24 );
 
-			set( gca, 'XLim', [-1 8], 'XTick', [1.5 5.5], 'XTickLabel', { 'P Cell', 'M Cell' }, 'XTickLabelRotation', 10, 'YScale', 'log', 'FontSize', FontSize, 'LineWidth', LineWidth, 'box', 'off' );
-			title( 'Weighted PSD', 'FontSize', 20 );
-			ylabel('PSD');
-			set( legend(h), 'location', 'northwest', 'fontsize', 18 );
+			% set( gca, 'XLim', [-1 8], 'XTick', [1.5 5.5], 'XTickLabel', { 'P Cell', 'M Cell' }, 'XTickLabelRotation', 10, 'YScale', 'log', 'FontSize', FontSize, 'LineWidth', LineWidth, 'box', 'off' );
+			% title( 'Weighted PSD', 'FontSize', 20 );
+			% ylabel('PSD');
+			% set( legend(h), 'location', 'northwest', 'fontsize', 18 );
 
-			saveas( gcf, [ destFolder, '\FV_Population_withRamp', num2str(withRamp), '.fig' ] );
-			saveas( gcf, [ destFolder, '\FV_Population_withRamp', num2str(withRamp), '.png' ] );
+			% saveas( gcf, [ destFolder, '\FV_Population_withRamp', num2str(withRamp), '.fig' ] );
+			% saveas( gcf, [ destFolder, '\FV_Population_withRamp', num2str(withRamp), '.png' ] );
+
+		end
+
+
+		function FV_PSD_Test( destFolder, w, rSlope, gainMin )
+			%% PSD analysis using free viewing data
+			%  destFolder:		folder to save data and figures
+			%  w:				total duration of a simulated blink in ms; 200 by default
+			%  rSlope:			proportion/ratio of two slopes over total duration for a simulated blink; 0.2 by default
+			%  gainMin:			minimal gain during a simulated blink; 0 by default
+
+			if( nargin() < 1 || isempty(destFolder) ) destFolder = './'; end
+			if( nargin() < 2 || isempty(w) ) w = 200; end
+			if( nargin() < 3 || isempty(rSlope) ) rSlope = 0.2; end
+			if( nargin() < 4 || isempty(gainMin) ) gainMin = 0; end
+
+			SF = 3;
+			
+			FontSize = 24;
+			LineWidth = 2;
+
+			destFolder = sprintf( '%s/w%03d_rSlope%.2f_gainMin%.2f', destFolder, w, rSlope, gainMin );
+			if( exist( destFolder, 'dir' ) ~= 7 )
+				mkdir(destFolder);
+			end
+
+			if( exist( [destFolder, '\PSD_FV_Test.mat'], 'file' ) == 2 )
+				load( [destFolder, '\PSD_FV_Test.mat'] );
+			else
+				folders = dir( 'F:\FreeViewingDatabase\*FV.mat' );
+				for( iFolder = size(folders,1) : -1 : 1 )
+					fprintf( 'Processing %s...\n', folders(iFolder).name );
+					set( figure, 'NumberTitle', 'off', 'name', sprintf( '%s | PSD Based on FreeViewing Data | w:%d | rSlope:%.2f | gainMin:%.2f', folders(iFolder).name, w, rSlope, gainMin ), 'color', 'w' );
+					pause(0.1);
+					jf = get(handle(gcf),'javaframe');
+					jf.setMaximized(1);
+					pause(0.5);
+					
+					[PS_D, sFreqs_D, tFreqs_D] = BlinkTransient.QRadPowerSpectrumAna( [ folders(iFolder).folder, '/', folders(iFolder).name ], 'drift', w, rSlope, gainMin );
+					[PS_DB, sFreqs_DB, tFreqs_DB] = BlinkTransient.QRadPowerSpectrumAna( [ folders(iFolder).folder, '/', folders(iFolder).name ], 'drift+blink', w, rSlope, gainMin );
+
+					subplot(2,4,7);
+					hold on;
+					colors = {'m', 'b', 'c', 'k'};
+					f = [1 5 10];% [5 10 20];
+					h = [];
+					for( iF = 1:size(f,2) )
+						y = zeros(size(sFreqs_D));
+						y = interp2( tFreqs_D, sFreqs_D, PS_D, f(iF), sFreqs_D, 'linear' );
+						plot( sFreqs_D, y, '--', 'LineWidth', LineWidth, 'color', colors{iF}, 'DisplayName', sprintf( '%d Hz Drift', f(iF) ) );
+
+						y = zeros(size(sFreqs_DB));
+						y = interp2( tFreqs_DB, sFreqs_DB, PS_DB, f(iF), sFreqs_DB, 'linear' );
+						plot( sFreqs_DB, y, '-', 'LineWidth', LineWidth, 'color', colors{iF}, 'DisplayName', sprintf( '%d Hz Drift+blink', f(iF) ) );
+					end
+					cut = 10;%min(tFreqs_D(end),tFreqs_DB(end));
+					% plot( sFreqs_D, sum( PS_D(:,2:end), 2 ) * (tFreqs_D(2) - tFreqs_D(1)), '--', 'LineWidth', LineWidth, 'color', colors{4}, 'DisplayName', 'NonZero Hz Drift' );
+					plot( sFreqs_D, sum( PS_D( :, 1 < tFreqs_D & tFreqs_D < cut ), 2 ) * (tFreqs_D(2) - tFreqs_D(1)), '--', 'LineWidth', LineWidth, 'color', colors{4}, 'DisplayName', 'NonZero Hz Drift' );
+					% plot( sFreqs_B, sum( PS_B(:,2:end), 2 ) * (tFreqs_B(2) - tFreqs_B(1)), ':', 'LineWidth', LineWidth, 'color', colors{4}, 'DisplayName', 'NonZero Hz Blink' );
+					% plot( sFreqs_DB, sum( PS_DB(:,2:end), 2 ) * (tFreqs_DB(2) - tFreqs_DB(1)), '-', 'LineWidth', LineWidth, 'color', colors{4}, 'DisplayName', 'NonZero Hz Drift+blink' );
+					plot( sFreqs_DB, sum( PS_DB( :, 1 < tFreqs_DB & tFreqs_DB < cut ), 2 ) * (tFreqs_DB(2) - tFreqs_DB(1)), '-', 'LineWidth', LineWidth, 'color', colors{4}, 'DisplayName', 'NonZero Hz Drift+blink' );
+					
+					names = { num2str(f(1)), num2str(f(2)), num2str(f(3)), 'NonZero' };
+					for( i = 1 : 4 )
+						h(end+1) = plot( -1, -1, 'LineStyle', 'none', 'Marker', 'Square', 'MarkerFaceColor', colors{i}, 'MarkerEdgeColor', colors{i}, 'DisplayName', [names{i} ' Hz'] );
+					end
+					h(end+1) = plot( -1, -1, 'k--', 'LineWidth', LineWidth, 'DisplayName', 'Drift' );
+					% h(end+1) = plot( -1, -1, 'k:', 'LineWidth', LineWidth, 'DisplayName', 'Blink' );
+					h(end+1) = plot( -1, -1, 'k', 'LineWidth', LineWidth, 'DisplayName', 'Drift+blink' );
+					set( gca, 'FontSize', FontSize, 'LineWidth', LineWidth, 'XScale', 'log', 'YScale', 'log', 'XLim', [sFreqs_D(2), 20], 'XTick', [1 10], 'XTickLabel', [1 10] );
+					plot( [3 3], get(gca,'YLim'), 'k:' );
+					set( legend(h), 'location', 'Southeast' );
+					xlabel('Spatial frequency (cpd)');
+					ylabel('Power spectral density');
+
+					subplot(2,4,8);
+					hold on;
+					k = [3];
+					colors = {'m', 'b'};
+					h = [];
+					for( iK = 1:size(k,2) )
+						y = zeros(size(tFreqs_D));
+						y = interp2( tFreqs_D, sFreqs_D, PS_D, tFreqs_D, k(iK), 'linear' );
+						h(end+1) = plot( tFreqs_D, y, '--', 'LineWidth', LineWidth, 'color', colors{iK}, 'DisplayName', sprintf( '%d cpd Drift', k(iK) ) );
+
+						y = zeros(size(tFreqs_DB));
+						y = interp2( tFreqs_DB, sFreqs_DB, PS_DB, tFreqs_DB, k(iK), 'linear' );
+						h(end+1) = plot( tFreqs_DB, y, '-', 'LineWidth', LineWidth, 'color', colors{iK}, 'DisplayName', sprintf( '%d cpd Drift+blink', k(iK) ) );
+					end
+					set( legend(h), 'location', 'Southeast' );
+					set( gca, 'FontSize', FontSize, 'LineWidth', LineWidth, 'XScale', 'log', 'YScale', 'log', 'XLim', [tFreqs_D(2), 60], 'XTick', [1 10 40], 'XTickLabel', [1 10 40] );
+					xlabel('Temporal frequency (Hz)');
+					ylabel('Power spectral density');
+
+
+					pCellGain = RGC.TemporalFreqGainProfile( tFreqs_D, 'p', 'center' ) - RGC.TemporalFreqGainProfile( tFreqs_D, 'p', 'surround' );
+					mCellGain = RGC.TemporalFreqGainProfile( tFreqs_D, 'm', 'on' );
+					weighted_D.P = interp2( tFreqs_D, sFreqs_D, PS_D, tFreqs_D(tFreqs_D>0), SF, 'linear' ) * pCellGain(tFreqs_D>0)';
+					weighted_D.M = interp2( tFreqs_D, sFreqs_D, PS_D, tFreqs_D(tFreqs_D>0), SF, 'linear' ) * mCellGain(tFreqs_D>0)';
+					weighted_DB.P = interp2( tFreqs_DB, sFreqs_DB, PS_DB, tFreqs_DB(tFreqs_DB>0), SF, 'linear' ) * pCellGain(tFreqs_DB>0)';
+					weighted_DB.M = interp2( tFreqs_DB, sFreqs_DB, PS_DB, tFreqs_DB(tFreqs_DB>0), SF, 'linear' ) * mCellGain(tFreqs_DB>0)';
+
+					% subplot(2,4,7); hold on;
+					% h(2) = plot( tFreqs_D(tFreqs_D>0), pCellGain(tFreqs_D>0), 'LineWidth', LineWidth, 'color', [0.5 0.5 0.5], 'DisplayName', 'P Cell' );
+					% h(1) = plot( tFreqs_D(tFreqs_D>0), mCellGain(tFreqs_D>0), 'LineWidth', LineWidth, 'color', 'k', 'DisplayName', 'M Cell' );
+					% set( gca, 'FontSize', FontSize, 'LineWidth', LineWidth, 'XScale', 'log', 'YScale', 'log', 'XLim', [tFreqs_D(2), 70], 'XTick', [1 10 40], 'XTickLabel', [1 10 40], 'box', 'off' );
+					% title( 'Cell sensitivity', 'FontSize', 20 );
+					% xlabel( 'Temporal frequency (Hz)' );
+					% ylabel( 'Gain' );
+					% set( legend(h), 'location', 'southwest', 'FontSize', 18 );
+					
+					% subplot(2,4,8); hold on; h = [];
+					% h(1) = bar( 1, weighted_D.P, 1, 'b', 'LineStyle', 'none', 'DisplayName', 'drift' );
+					% h(2) = bar( 2, weighted_DB.P, 1, 'r', 'LineStyle', 'none', 'DisplayName', 'drift+blink' );
+					% bar( 5, weighted_D.M, 1, 'b', 'LineStyle', 'none', 'DisplayName', 'drift' );
+					% bar( 6, weighted_DB.M, 1, 'r', 'LineStyle', 'none', 'DisplayName', 'drift+blink' );
+					% set( gca, 'XLim', [-1 8], 'XTick', [1.5 5.5], 'XTickLabel', { 'P Cell', 'M Cell' }, 'XTickLabelRotation', 10, 'YScale', 'log', 'FontSize', FontSize, 'LineWidth', LineWidth, 'box', 'off' );
+					% title( 'Weighted PSD', 'FontSize', 20 );
+					% ylabel('PSD');
+					% set( legend(h), 'location', 'northwest', 'fontsize', 18 );
+
+					PSD_FV_Test.PS_D{iFolder} = PS_D;
+					PSD_FV_Test.sFreqs_D = sFreqs_D;
+					PSD_FV_Test.tFreqs_D = tFreqs_D;
+					PSD_FV_Test.PS_DB{iFolder} = PS_DB;
+					PSD_FV_Test.sFreqs_DB = sFreqs_DB;
+					PSD_FV_Test.tFreqs_DB = tFreqs_DB;
+					PSD_FV_Test.weighted_D(iFolder) = weighted_D;
+					PSD_FV_Test.weighted_DB(iFolder) = weighted_DB;
+					PSD_FV_Test.pCellGain = pCellGain;
+					PSD_FV_Test.mCellGain = mCellGain;
+
+					pause(5);
+					saveas( gcf, sprintf( '%s/FV_Test_w%03d_rSlope%.2f_gainMin%.2f_%s.fig', destFolder, w, rSlope, gainMin, folders(iFolder).name(1:end-4) ) );
+					saveas( gcf, sprintf( '%s/FV_Test_w%03d_rSlope%.2f_gainMin%.2f_%s.png', destFolder, w, rSlope, gainMin, folders(iFolder).name(1:end-4) ) );
+					close(gcf);
+					pause(5);
+				end
+				save( [destFolder, '\PSD_FV_Test.mat'], 'PSD_FV_Test' );
+			end
+
+			PS_D = PSD_FV_Test.PS_D;
+			sFreqs_D = PSD_FV_Test.sFreqs_D;
+			tFreqs_D = PSD_FV_Test.tFreqs_D;
+			PS_DB = PSD_FV_Test.PS_DB;
+			sFreqs_DB = PSD_FV_Test.sFreqs_DB;
+			tFreqs_DB = PSD_FV_Test.tFreqs_DB;
+			weighted_D = PSD_FV_Test.weighted_D;
+			weighted_DB = PSD_FV_Test.weighted_DB;
+			pCellGain = PSD_FV_Test.pCellGain;
+			mCellGain = PSD_FV_Test.mCellGain;
+
+			for( weighted = [true false] )
+
+				if(~weighted)
+					for( i = 1 : size(PS_D,2) )
+						weighted_D(i).P = sum( interp2( tFreqs_D, sFreqs_D, PS_D{i}, tFreqs_D(tFreqs_D>0), SF, 'linear' ) ) * (tFreqs_D(2) - tFreqs_D(1));
+						weighted_D(i).M = sum( interp2( tFreqs_D, sFreqs_D, PS_D{i}, tFreqs_D(tFreqs_D>0), SF, 'linear' ) ) * (tFreqs_D(2) - tFreqs_D(1));
+						weighted_DB(i).P = sum( interp2( tFreqs_DB, sFreqs_DB, PS_DB{i}, tFreqs_DB(tFreqs_DB>0), SF, 'linear' ) ) * (tFreqs_DB(2) - tFreqs_DB(1));
+						weighted_DB(i).M = sum( interp2( tFreqs_DB, sFreqs_DB, PS_DB{i}, tFreqs_DB(tFreqs_DB>0), SF, 'linear' ) ) * (tFreqs_DB(2) - tFreqs_DB(1));
+					end
+				else
+					weighted_D = PSD_FV_Test.weighted_D;
+					weighted_DB = PSD_FV_Test.weighted_DB;
+				end
+				[~, pVal.P, CI.P] = ttest( [weighted_D.P], [weighted_DB.P], 'alpha', 0.05 );
+				[~, pVal.M, CI.M] = ttest( [weighted_D.M], [weighted_DB.M], 'alpha', 0.05 )
+				if( pVal.P < 0.1 && pVal.P > 0.05 ) isShowValue.P = true;
+				else isShowValue.P = false; end
+				if( pVal.M < 0.1 && pVal.M > 0.05 ) isShowValue.M = true;
+				else isShowValue.M = false; end
+
+				set( figure, 'NumberTitle', 'off', 'name', sprintf( 'Population | PSD Based on FreeViewing Data. Test. | Weighted:%d | w:%d | rSlope:%.2f | gainMin:%.2f', weighted, w, rSlope, gainMin ), 'color', 'w' );
+				pause(0.1);
+				jf = get(handle(gcf),'javaframe');
+				jf.setMaximized(1);
+				pause(0.5);
+				if(weighted)
+					subplot(1,2,1); hold on;
+					h(2) = plot( tFreqs_D(tFreqs_D>0), pCellGain(tFreqs_D>0), 'LineWidth', LineWidth, 'color', [0.5 0.5 0.5], 'DisplayName', 'P Cell' );
+					h(1) = plot( tFreqs_D(tFreqs_D>0), mCellGain(tFreqs_D>0), 'LineWidth', LineWidth, 'color', 'k', 'DisplayName', 'M Cell' );
+					set( gca, 'FontSize', FontSize, 'LineWidth', LineWidth, 'XScale', 'log', 'YScale', 'log', 'XLim', [tFreqs_D(2), 70], 'XTick', [1 10 40], 'XTickLabel', [1 10 40], 'box', 'off' );
+					title( 'Cell sensitivity', 'FontSize', 20 );
+					xlabel( 'Temporal frequency (Hz)' );
+					ylabel( 'Gain' );
+					set( legend(h), 'location', 'southwest', 'FontSize', 18 );
+					
+					subplot(1,2,2);
+				end
+				hold on; h = [];
+				h(1) = bar( 1, mean( [weighted_D.P] ), 1, 'b', 'LineStyle', 'none', 'DisplayName', 'drift' );
+				plot( [1,1], [-1,1]*std([weighted_D.P])+mean([weighted_D.P]), '-k', 'LineWidth', LineWidth );
+				h(2) = bar( 2, mean( [weighted_DB.P] ), 1, 'r', 'LineStyle', 'none', 'DisplayName', 'drift+blink' );
+				plot( [2,2], [-1,1]*std([weighted_DB.P])+mean([weighted_DB.P]), '-k', 'LineWidth', LineWidth );
+				ToolKit.ShowSignificance( [1, std([weighted_D.P]+mean([weighted_D.P]))], [2, std([weighted_DB.P]+mean([weighted_DB.P]))], pVal.P, 0.02, isShowValue.P, 'FontSize', 24 );
+
+				bar( 5, mean( [weighted_D.M] ), 1, 'b', 'LineStyle', 'none', 'DisplayName', 'drift' );
+				plot( [5,5], [-1,1]*std([weighted_D.M])+mean([weighted_D.M]), '-k', 'LineWidth', LineWidth );
+				bar( 6, mean( [weighted_DB.M] ), 1, 'r', 'LineStyle', 'none', 'DisplayName', 'drift+blink' );
+				plot( [6,6], [-1,1]*std([weighted_DB.M])+mean([weighted_DB.M]), '-k', 'LineWidth', LineWidth );
+				ToolKit.ShowSignificance( [5, std([weighted_D.M]+mean([weighted_D.M]))], [6, std([weighted_DB.M]+mean([weighted_DB.M]))], pVal.M, 0.02, isShowValue.M, 'FontSize', 24 );
+
+				set( gca, 'XLim', [-1 8], 'XTick', [1.5 5.5], 'XTickLabel', { 'P Cell', 'M Cell' }, 'XTickLabelRotation', 10, 'YScale', 'log', 'FontSize', FontSize, 'LineWidth', LineWidth, 'box', 'off' );
+				title( 'PSD', 'FontSize', 20 );
+				ylabel('PSD');
+				set( legend(h), 'location', 'northeastout', 'fontsize', 18 );
+
+				saveas( gcf, sprintf( '%s/FV_Test_w%03d_rSlope%.2f_gainMin%.2f_Population_Weighted%d.fig', destFolder, w, rSlope, gainMin, weighted ) );
+				saveas( gcf, sprintf( '%s/FV_Test_w%03d_rSlope%.2f_gainMin%.2f_Population_Weighted%d.png', destFolder, w, rSlope, gainMin, weighted ) );
+			end
 
 		end
 
@@ -2321,26 +3269,26 @@ classdef BlinkTransient < handle
 					close(hMain);
 
 					PSD.PS_D{iSbj} = PS_D;
-					PSD.sFreqs = sFreqs;
-					PSD.tFreqs = tFreqs;
+					PSD.sFreqs{iSbj} = sFreqs;
+					PSD.tFreqs{iSbj} = tFreqs;
 					PSD.PS_DB{iSbj} = PS_DB;
 					PSD.weighted_D(iSbj) = weighted_D;
 					PSD.weighted_DB(iSbj) = weighted_DB;
-					PSD.pCellGain = pCellGain;
-					PSD.mCellGain = mCellGain;
+					PSD.pCellGain{iSbj} = pCellGain;
+					PSD.mCellGain{iSbj} = mCellGain;
 					save( ['F:\BlinkTransient\PSD\PSD_', version, '.mat'], 'PSD' );
 				end
 				save( ['F:\BlinkTransient\PSD\PSD_', version, '.mat'], 'PSD' );
 			end
 
 			PS_D = PSD.PS_D;
-			sFreqs = PSD.sFreqs;
-			tFreqs = PSD.tFreqs;
+			sFreqs = PSD.sFreqs{2};
+			tFreqs = PSD.tFreqs{2};
 			PS_DB = PSD.PS_DB;
 			weighted_D = PSD.weighted_D;
 			weighted_DB = PSD.weighted_DB;
-			pCellGain = PSD.pCellGain;
-			mCellGain = PSD.mCellGain;
+			pCellGain = PSD.pCellGain{2};
+			mCellGain = PSD.mCellGain{2};
 			[~, pVal.P, CI.P] = ttest( [weighted_D.P], [weighted_DB.P], 'alpha', 0.05 );
 			[~, pVal.M, CI.M] = ttest( [weighted_D.M], [weighted_DB.M], 'alpha', 0.05 )
 			if( pVal.P < 0.1 && pVal.P > 0.05 ) isShowValue.P = true;
@@ -3102,11 +4050,8 @@ classdef BlinkTransient < handle
 			  		trial.blinks.start( trial.blinks.duration < 15/1000*sRate ) = [];
 			  		trial.blinks.duration( trial.blinks.duration < 15/1000*sRate ) = [];
 
-			  		if(iTrial == 41)
-			  			;
-			  		end
-
 			  		if( ~isempty( strfind( folder, 'DDPI' ) ) )
+			  			% mearge notracks right before & after a blink into that blink
 			  			blinks = trial.blinks;
 				  		notracks = trial.notracks;
 				  		for( iBlink = 1 : size(trial.blinks.start,2) )
@@ -3171,6 +4116,126 @@ classdef BlinkTransient < handle
 				BlinkTransient.EIS2Mat( ToolKit.RMEndSpaces( subfolders(iFolder,:) ), sRate, has2Tones, reverse2Tones );
 			end
 		end
+
+
+		function EIS2Mat_Simulated( folder, sRate )
+			if( nargin() < 2 || isempty(sRate) ) sRate = 1000; end
+
+			if( folder(end) == '\' || folder(end) == '/' ) folder(end) = []; end
+			fprintf('%s\n', folder);
+			if( size(folder,2) > 10 && strcmpi( folder(end-10:end), 'calibration' ) ) return; end
+			
+			if( 0&& exist( [folder,'/Trials.mat'], 'file' ) == 2 )%&& isempty(strfind(folder,'DDPI')) )
+				delete( [folder,'/Trials.mat'] );
+				% return;
+				load( [folder, '/Trials.mat'] );
+				if( ~isfield( Trials, 'sRate' ) )
+					[Trials.sRate] = deal(sRate);
+					% save( [ folder, '/', 'Trials.mat' ], 'Trials' );
+				end
+				Trials = orderfields(Trials);
+				save( [ folder, '/', 'Trials.mat' ], 'Trials' );
+			else
+				delete( [folder,'/Trials.mat'] );
+				% return;
+			end
+			% return;
+
+			eisFNs = dir( [folder, '/*.eis'] );
+			if( ~isempty(eisFNs) && exist( [folder,'/Trials.mat'], 'file' ) ~= 2 )
+                list = [];
+				list = eis_readData([], 'x');
+				list = eis_readData(list, 'y');
+				list = eis_readData(list, 'stream', 0, 'double');
+				list = eis_readData(list, 'stream', 1, 'double');
+				list = eis_readData(list, 'trigger', 'blink');
+				list = eis_readData(list, 'trigger', 'notrack');
+				usrVars = { 'trialType',...
+							'tTrialStart',...
+							'tFpOn',...
+							'tRampOn',...
+							'tPlateauOn',...
+							'tMaskOn',...
+							'tMaskOff',...
+							'tResponse',...
+							'response',...
+							'tSimBlinkOn',...
+							'tSimBlinkOff',...
+							'gaborSpFreq',...
+							'gaborOri',...
+							'gaborStdPix',...
+							'gaborWPix',...
+							'gaborAmp',...
+							'expName',...
+							'sbjName',...
+							'screenR',...
+							'screenWPix',...
+							'screenHPix',...
+							'screenWmm',...
+							'screenHmm',...
+							'screenDmm',...
+							'bgnLuminance' };
+				for( i = 1 : size(usrVars,2) )
+					list = eis_readData(list, 'uservar', usrVars{i} );
+				end
+				data = eis_eisdir2mat(folder,list);
+
+				for( iTrial = size(data.user,1) : -1 : 1 )
+					trial = createTrial( iTrial, data.x{iTrial}, data.y{iTrial}, data.triggers{iTrial}.blink, data.triggers{iTrial}.notrack, ones(1,size(data.x{iTrial},2)), [], sRate );
+					% trial = createTrial( iTrial, [], [], [], [], 0 );
+					trial = findSaccades( trial, 'minvel', 180, 'minsa', 30 );	% min arc
+					trial = findMicrosaccades( trial, 'minvel', 180, 'minmsa', 3, 'maxmsa', 30 );	% min arc
+			  		trial = findDrifts(trial);
+
+			    	trial.evntRenderTimes = data.stream00{iTrial};
+			    	trial.evntRenderIFrames = data.stream01{iTrial};
+			    	% trial.postSwapTimes = data.stream02{iTrial};
+			    	% trial.postSwapIFrames = data.stream03{iTrial};
+
+			    	varNames = fieldnames(data.user{iTrial});
+				    for i = 1 : size(varNames,1)
+				        trial.(varNames{i}) = data.user{iTrial}.(varNames{i});
+				    end
+
+				    trial.trialType = char(trial.trialType);
+
+				    Trials(iTrial) = trial;
+				end 
+
+				index = false(1,size(data.user,1));
+				for( iTrial = 1 : size(Trials,2) )
+					Trials(iTrial).tSimBlinkOn = double( Trials(iTrial).tSimBlinkOn );
+					Trials(iTrial).tSimBlinkOff = double( Trials(iTrial).tSimBlinkOff );
+					blinks = Trials(iTrial).blinks;
+			  		if( Trials(iTrial).tSimBlinkOn > Trials(iTrial).tPlateauOn ||...
+			  			any( Trials(iTrial).tRampOn - Trials(iTrial).tTrialStart < (blinks.start + blinks.duration-2) / Trials(iTrial).sRate*1000 & (blinks.start-1) / Trials(iTrial).sRate * 1000 < Trials(iTrial).tMaskOn - Trials(iTrial).tTrialStart ) )
+			  			index(iTrial) = true;
+			  			continue;
+			  		end
+			  		if( Trials(iTrial).tSimBlinkOn > 0 )
+				  		Trials(iTrial).tBlinkBeepOn = Trials(iTrial).tRampOn + 500;
+				  		Trials(iTrial).blinks.start = [Trials(iTrial).blinks.start, round( (Trials(iTrial).tSimBlinkOn - Trials(iTrial).tTrialStart) / 1000 * Trials(iTrial).sRate + 1 ) ];
+				  		Trials(iTrial).blinks.duration = [Trials(iTrial).blinks.duration, round( ( Trials(iTrial).tSimBlinkOff - Trials(iTrial).tSimBlinkOn ) / 1000 * Trials(iTrial).sRate ) ];
+				  		[~,I] = sort( Trials(iTrial).blinks.start );
+				  		Trials(iTrial).blinks.start = Trials(iTrial).blinks.start(I);
+				  		Trials(iTrial).blinks.duration = Trials(iTrial).blinks.duration(I);
+				  	else
+				  		Trials(iTrial).tBlinkBeepOn = Trials(iTrial).tRampOn - 700;
+				  	end
+				end
+				Trials(index) = [];
+
+				Trials = orderfields(Trials);
+				save( [ folder, '/', 'Trials.mat' ], 'Trials' );
+				% delete( [ folder, '/', folder( find( folder == '/' | folder == '\', 1, 'last' ) + 1 : end ), '.mat' ] );
+			end
+
+			subfolders = ToolKit.ListFolders(folder);
+			for( iFolder = 1 : size(subfolders,1) )
+				BlinkTransient.EIS2Mat_Simulated( ToolKit.RMEndSpaces( subfolders(iFolder,:) ), sRate );
+			end
+		end
+
 
 		function Data4Blinks = GetData4Blinks( folder, discardMicrosaccades, discardSaccades )
 			if( folder(end) == '/' || folder(end) == '\' ) folder(end) = []; end
@@ -3755,6 +4820,14 @@ classdef BlinkTransient < handle
 					data(iGroup).trialsWithBlink = data(iGroup).trialsWithBlink( [data(iGroup).trialsWithBlink.hasSac] == hasSac );
 					data(iGroup).trialsWithoutBlink = data(iGroup).trialsWithoutBlink( [data(iGroup).trialsWithoutBlink.hasSac] == hasSac );
 				end
+
+				iii = true(1,size(data(iGroup).trialsWithBlink,2));
+				for( iTrial = 1:size(data(iGroup).trialsWithBlink,2) )
+					dt = data(iGroup).trialsWithBlink(iTrial).blinks.start / data(iGroup).trialsWithBlink(iTrial).sRate * 1000 - (data(iGroup).trialsWithBlink(iTrial).tRampOn - data(iGroup).trialsWithBlink(iTrial).tTrialStart);
+					% if( any( 0 < dt & dt < 1002 ) ) iii(iTrial) = false; end 	% A050: 1007;	A082: 1132;	A002: 1002
+					if( data(iGroup).trialsWithBlink(iTrial).blinks.duration( find( dt > 0, 1, 'first' ) ) / data(iGroup).trialsWithBlink(iTrial).sRate * 1000 < 123 ) iii(iTrial) = false; end 	% A002: 171; A050: 123; A082: 131
+				end
+				% data(iGroup).trialsWithBlink(iii) = [];
 			end
 
 			if(isNewFigure)
@@ -4798,7 +5871,9 @@ classdef BlinkTransient < handle
 				end
 
 				sRate = Trials(iTrial).sRate;
-				for( ii = 1 : size(starts,2) )
+				ends( starts > length(Trials(iTrial).x.position) / Trials(iTrial).sRate * 1000 ) = [];
+				starts( starts > length(Trials(iTrial).x.position) / Trials(iTrial).sRate * 1000 ) = [];
+				for( ii = 1 : -1)%size(starts,2) )
 					tStart = starts(ii);			% time when P1 occluded (ms)
 					tEnd = ends(ii);				% time when P1 un-occluded (ms)
 					s2 = round( tStart/1000*sRate );
@@ -5735,7 +6810,6 @@ classdef BlinkTransient < handle
 			U = 1;	% scale factor for Win
 			PSX = round(swPix/4)*2;%floor(gwPix);
 			PSY = round(shPix/4)*2;%floor(ghPix);
-			Win = hann(PSX) * hann(PSY)';
 			tRamp = 1024+512;
 			tPlateau = 1024;%+512;
 			PSZ = tRamp + tPlateau;
@@ -5746,9 +6820,9 @@ classdef BlinkTransient < handle
 			sFreqs = (0 : size(PS,1)-1) / (atand( PSX/swPix*swMm/2 / sDist ) * 2);
 			tFreqs = (0 : size(PS,3)-1) / (PSZ/1000);
 			mov = zeros( PSX, PSY, PSZ, 'single' );
-			Win = zeros(PSX,PSY,PSZ,'single');
-			w = 1024;
-			Win( :, :, (1:w) + (PSZ-150)/2-w/2 ) = repmat( reshape( hann(w), 1, 1, w ), PSX, PSY );
+			% Win = zeros(PSX,PSY,PSZ,'single');
+			w = 512;
+			% Win( :, :, (1:w) + (PSZ-150)/2-w/2 ) = repmat( reshape( hann(w), 1, 1, w ), PSX, PSY );
             
 			sigma = 180;%120;
 			if( ~exist( 'orientation', 'var' ) ) orientation = 0; end
@@ -5770,7 +6844,8 @@ classdef BlinkTransient < handle
 				wlPix = gwPix ./ ( atand( gwPix/shPix*shMm/2 / sDist ) * 2 * sf );
 				gabor = ToolKit.Gabor( wlPix, orientation, phase, gwPix, ghPix, 'grating' );
 			end
-			img( (swPix-gwPix)/2 + (1:gwPix), (shPix-ghPix)/2 + (1:ghPix) ) = gabor' * gbAmp / bgnLuminance;
+			% img( (swPix-gwPix)/2 + (1:gwPix), (shPix-ghPix)/2 + (1:ghPix) ) = gabor' * gbAmp / bgnLuminance;		% in contrast
+			img( (swPix-gwPix)/2 + (1:gwPix), (shPix-ghPix)/2 + (1:ghPix) ) = gabor';	% range of [-1,1]
 			% figure; imshow(img);
 
 			contrast = 1;
@@ -5783,9 +6858,9 @@ classdef BlinkTransient < handle
 			LineWidth = 2;
 			hMain = gcf;
 			% hDrifts = figure( 'NumberTitle', 'off', 'name', 'Connected Drifts', 'color', 'w' );
-			set( gca, 'FontSize', FontSize, 'LineWidth', LineWidth, 'nextplot', 'add' );
-			xlabel('Time (ms)');
-			ylabel('Pixels');
+			% set( gca, 'FontSize', FontSize, 'LineWidth', LineWidth, 'nextplot', 'add' );
+			% xlabel('Time (ms)');
+			% ylabel('Pixels');
 
 			nValidTrials = size(Trials,2);
 			panel2 = true;
@@ -5872,8 +6947,8 @@ classdef BlinkTransient < handle
 						d = - round(tFullCover/2);% + randi(50) - 26;		% blink central time relative to stimulus center
 						bTrace( (1:tFullCover) + (end-tFullCover)/2 + d ) = max( a * bx(:) - b * by(:) );
 						dur = round(dc/PSX*50);	% move by PSX in 20 ms
-						bTrace( (1-dur:0) + (end-tFullCover)/2 + d ) = min( a * bx(:) - b * by(:) ) - 1 + round( (1:dur)/dur * dc );
-						bTrace( (dur:-1:1) + tFullCover + (end-tFullCover)/2 + d ) = min( a * bx(:) - b * by(:) ) - 1 + round( (1:dur)/dur * dc );
+						% bTrace( (1-dur:0) + (end-tFullCover)/2 + d ) = min( a * bx(:) - b * by(:) ) - 1 + round( (1:dur)/dur * dc );
+						% bTrace( (dur:-1:1) + tFullCover + (end-tFullCover)/2 + d ) = min( a * bx(:) - b * by(:) ) - 1 + round( (1:dur)/dur * dc );
 						
 						% freeze eye trace during blink
 						iStart = find( bTrace > min( a * bx(:) - b * by(:) ) - 1, 1, 'first' );	% start of blink
@@ -5913,15 +6988,18 @@ classdef BlinkTransient < handle
 					% power spectrum
 					nOverlaps = 1;
 					for( t = 1 : PSZ )
-						tmpMov = img( (0:PSX-1) + round( ( size(img,1) - PSX ) / 2 ) + x(t), (0:PSY-1) + round( ( size(img,2) - PSY ) / 2 ) + y(t) );
+						tmpMov = img( (0:PSX-1) + round( ( size(img,1) - PSX ) / 2 ) + x(t), (0:PSY-1) + round( ( size(img,2) - PSY ) / 2 ) + y(t) ) * 1 * Gt(t) + 128;
                         tmpMov( a * bx - b * by <= bTrace(t) ) = 0;
-						mov( :, :, t ) = tmpMov * Gt(t);
+						mov( :, :, t ) = tmpMov;
 						% imshow( mov(350:370,:,t), [] );
 					end
 					mov = ( mov - mean(mov(:)) ) .* Win;
+					% mov = mov - repmat( mean(mov,3), 1, 1, size(mov,3) );
 					tPS = fftn(mov);
 					PS = PS + abs( tPS( 1:size(PS,1), 1:size(PS,2), 1:size(PS,3) ) ).^2;	% discard negative frequency part
 						% power spectrum using fft: fft^2 / (N*Fs)		(N: number of data points, Fs: sampling rate)
+
+					break;
 				else
 					% power spectrum
 					nOverlaps = 9;
@@ -5970,12 +7048,25 @@ classdef BlinkTransient < handle
 
 
 
-		function [PS, sFreqs, tFreqs] = QRadPowerSpectrumAna( dataFileName, modulator )
-			%% modulator:		drift, blink, or drift+blink
+		function [PS, sFreqs, tFreqs] = QRadPowerSpectrumAna( data, modulator, w, rSlope, gainMin )
+			%% data:			file name containing Trials, or structure array Trials
+			%  modulator:		drift, blink, or drift+blink
+			%  w:				total duration of a simulated blink in ms; 200 by default
+			%  rSlope:			proportion/ratio of two slopes over total duration for a simulated blink; 0.2 by default
+			%  gainMin:			minimal gain during a simulated blink; 0 by default
+
+			if(ischar(data))
+				Trials = load(data);
+				Trials = Trials.Trials;
+			elseif(isstruct(data))
+				Trials = data;
+			end
 			
 			modulator = lower(modulator);
 
-			load( dataFileName, 'Trials' );
+			if( nargin() < 3 || isempty(w) ) w = 200; end
+			if( nargin() < 4 || isempty(rSlope) ) rSlope = 0.2; end
+			if( nargin() < 5 || isempty(gainMin) ) gainMin = 0; end
 
 			swPix = 2560;	% screen width in pixels
 			swMm = 600;		% screen width in mm
@@ -5983,71 +7074,25 @@ classdef BlinkTransient < handle
 			shMm = 335;		% screen height in mm
 			sDist = 1620;%1190;	% distance from screen to subject's eye in mm
 			gwPix = 720;	% width of gabor patch in pixels; half of the screen height
-			sigma = 180;%120;
-			sf = 10;
-			wlPix = gwPix / ( atand( gwPix/shPix*shMm/2 / sDist ) * 2 * sf );
-			orientation = 0;
-			phase = 0;
-			bgnLuminance = BlinkTransient.Intensity2Luminance(128);
-			gbAmp = BlinkTransient.Intensity2Luminance(128+8) - bgnLuminance;
-			img = zeros( swPix, shPix );	% 1st dimension: horizontal (width); 2nd dimension: vertical (height)
-
-			Win = 1;	% e.g., Hanning Window
-			U = 1;	% scale factor for Win
 			PSX = floor(gwPix);
 			PSY = floor(gwPix);
 			PSZ = 1024;
 			NSamples = PSX * PSY * PSZ;
-			PS = zeros( PSX/2+1, 50, 'single');
+			% PS = zeros( PSX/2+1, 50, 'single');
+			PS = zeros( PSX/2+1, PSZ/2+1, 'single');
 			sFreqs = (0 : size(PS,1)-1) / (atand( PSX/swPix*swMm/2 / sDist ) * 2);
 			tFreqs = (0 : size(PS,2)-1) / (PSZ/1000);
-			mov = zeros( PSX, PSY, PSZ, 'single' );
 
-			% set( figure, 'NumberTitle', 'off', 'name', dataFileName );
-			% pause(0.1);
-			% jf = get(handle(gcf),'javaframe');
-			% jf.setMaximized(1);
-			% pause(0.5);
 			FontSize = 20;
 			LineWidth = 1.5;
 			
-			%% gabor patch
-			gabor = ToolKit.Gabor( wlPix, orientation, phase, gwPix, gwPix, 'grating', sigma )' * gbAmp;
-			% gabor = zeros(gwPix,gwPix);
-			% for( f = sFreqs )
-			% 	gabor = gabor + ToolKit.Gabor( gwPix / ( atand( gwPix/shPix*shMm/2 / sDist ) * 2 * f ), orientation, phase, gwPix, gwPix, 'grating', sigma )';
-			% end
-			% gabor = gabor * gbAmp;
-			img( (swPix-gwPix)/2 + (1:gwPix), (shPix-gwPix)/2 + (1:gwPix) ) = gabor / bgnLuminance;
-			% subplot(2,2,1);
-			% hold on;
-			% imshow( img, BlinkTransient.Intensity2Luminance([0 255]) / bgnLuminance - 1 );
-			% set( gca, 'XDir', 'normal' );
 
-
-			%% power spectrum of the image
-			% PSImg = zeros( PSX/2+1, PSY/2+1, 'single' );
-			% for( startX = floor((size(img,1)-PSX) * [0 0.5 1] + 1) )
-			% 	for( startY = floor((size(img,2)-PSY) * [0 0.5 1] + 1) )
-			% 		tPS = fft2( img( startX + (0:PSX-1), startY + (0:PSY-1) ) );
-			% 		PSImg = PSImg + abs( tPS( 1:size(PSImg,1), 1:size(PSImg,2) ) ).^2;
-			% 	end
-			% end
-			% PSImg( :, 2:end-1 ) = PSImg( :, 2:end-1 ) * 2;
-			% PSImg( 2:end-1, : ) = PSImg( 2:end-1, : ) * 2;
-			% PSImg = 35 * PSImg / ( PSX * (PSX/(atand(PSX/swPix*swMm/2/sDist)*2)) * PSY * (PSY/(atand(PSY/shPix*shMm/2/sDist)*2)) ) / 9;		% power spectrum using fft: fft^2 / (N*Fs)		(N: number of data points, Fs: sampling rate)
-			% subplot(2,2,1);
-			% colormap('hot');
-			% set( pcolor( sFreqs, sFreqs, PSImg' ), 'LineStyle', 'none' );
-			% caxis( [0 max(PSImg(:))] );
-			% colorbar;
-			% set( gca, 'FontSize', FontSize );
 
 			hMain = gcf;
 			hDrifts = figure( 'NumberTitle', 'off', 'name', 'Connected Drifts', 'color', 'w' );
+			figure(hDrifts);
 			set( gca, 'FontSize', FontSize, 'LineWidth', LineWidth, 'nextplot', 'add' );
 			xlabel('Time (ms)');
-			ylabel('Pixels')
 
 			%% power spectrum of e^( -i*2*pi*sFreq*Eye(t）), where Eye(t) is eye trace
 			Win = ones(1,PSZ);
@@ -6098,13 +7143,9 @@ classdef BlinkTransient < handle
 					end
 					x = x(1:PSZ);
 					y = y(1:PSZ);
-					% subplot(2,2,3);
-					% set( gca, 'FontSize', FontSize );
-					% hold on;
-					% plot( [x;y]' );
 
 					% rotate by -orientation
-					orientation = 45;
+					orientation = 45 * (randi(2)*2-3);
 					xx = x * cosd(orientation) + y * sind(orientation);
 					yy = y * cosd(orientation) - x * sind(orientation);
 					% plot( [x;y]' );
@@ -6121,12 +7162,17 @@ classdef BlinkTransient < handle
 				else
 					% consider that blink decreases the luminance (not contrast) to a proportion of p;
 					%   contrast does not change!!! ((gbAmp + bgnLuminance) * p - bgnLuminance*p) / (bgnLuminance*p) == ( (gbAmp + bgnLuminance) - bgnLuminance ) / bgnLuminance;
-					p = 0;
+					% p = 0;
 					Gt = ones(1,PSZ);
-					d = randi(501) - 251;
-					Gt( (1:350) + (end-350)/2 + d ) = 0;
-					Gt( (1:20) + (end-350)/2 + d ) = 1 - (1:20)/20;
-					Gt( (350:-1:331) + (end-350)/2 + d ) = 1 - (1:20)/20;
+					offset = 0;%randi(501) - 251;
+					% w = 200;	% total duration
+					% rSlope = 0.2;	% portion/ratio of two slopes over total duration
+					% gainMin = 0.5;	% minimal gain during blink
+					Gt( (1:w) + (end-w)/2 + offset ) = gainMin;
+					down = w*rSlope/2;
+					Gt( (1:down) + (end-w)/2 + offset ) = 1 - (1:down)/down * (1-gainMin);
+					up = w*rSlope/2;
+					Gt( ( w : -1 : w-up+1 ) + (end-w)/2 + offset ) = 1 - (1:up)/up * (1-gainMin);
 
 					% Gt = (0:PSZ-1)/(PSZ-1);
 					% Gt( (1:350) + (end-350)/2 + d ) = 0;
@@ -6144,21 +7190,23 @@ classdef BlinkTransient < handle
 
 				% tPS = repmat( sum(PSImg,2), 1, size(x,2) ) .* QRad_fft2_SingleTrace(sFreqs, size(x,2), 0, x, y, Win)';
 				if( strcmp( modulator, 'drift' ) )		% drift only
-					tPS = QRad_Welch_SingleTrace(sFreqs, PSZ/2, 0, x, y, Win(1:PSZ/2), 1000)' * 1000 * PSZ;
-					tFreqs = (0 : size(PS,2)-1) / (PSZ/2/1000);
-					% tPS = QRad_fft2_SingleTrace(sFreqs, size(x,2), 0, x, y, Win)';
+					% [tPS,tFreqs] = QRad_Welch_SingleTrace(sFreqs, PSZ/2, 0, x, y, Win(1:PSZ/2), 1000);
+					% tPS = tPS' * 1000 * PSZ;
+					% tFreqs = tFreqs(1:50);
+					% tFreqs = (0 : size(PS,2)-1) / (PSZ/2/1000);
+					tPS = QRad_fft2_SingleTrace(sFreqs, size(x,2), 0, x, y, Win)';
 				else
 					tPS = QRad_fft2_SingleTrace(sFreqs, size(x,2), 0, x, y, Win, Gt)';
 				end
 				PS = PS + tPS(:,1:size(PS,2));
 			end
-			if( size(PS,2) < PSZ )
+			if( size(PS,2) < PSZ/2+1 )
 				PS( :, 2:end ) = 2 * PS( :, 2:end );	% convert to single sided
 			else
 				PS( :, 2:end-1 ) = 2 * PS( :, 2:end-1 );	% convert to single sided
 			end
 			PS = PS / (PSZ*1000) / nValidTrials;	% fft^2 / (N*Fs); and average over all eye traces
-			save( 'PS_QRad.mat', 'PS' );
+			% save( 'PS_QRad.mat', 'PS' );
 
 
 			figure(hMain);
@@ -6180,10 +7228,12 @@ classdef BlinkTransient < handle
 			% position(2) = position(2) + 0.05;	% move up by 0.05 (position: [ left bottom, width, height ])
 			% position(4) = position(4) - 0.1;
 			set( gca, 'color', 'k', 'FontSize', FontSize, 'LineWidth', LineWidth, 'XScale', 'log', 'YScale', 'log', 'XLim', [0.5 60], 'YLim', [tFreqs(2), (size(PS,2)-1) / (PSZ/1000)], 'XTick', [1 5 10 20 40], 'YTick', [1 5 10 20 40 80], 'position', position );
+		
+			close(hDrifts);
 		end
 
 
-		function PlotPSDSummary( version, withRamp )
+		function PlotPSDSummary( version, withRamp, dataFileName )
 			if( nargin() < 2 || isempty(withRamp) ) withRamp = false; end
 
 			global PSD_Covering;
@@ -6228,15 +7278,15 @@ classdef BlinkTransient < handle
 				end
 			elseif( strcmpi( version, 'gain' ) )
 				if( isempty(PSD_Gain) )
-					figure;
+					set( figure, 'NumberTitle', 'off', 'name', ['PSD.' version, '.', dataFileName] );
 					pause(0.1);
 					jf = get(handle(gcf),'javaframe');
 					jf.setMaximized(1);
 					pause(0.5);
-					[PS_D, sFreqs_D, tFreqs_D] = BlinkTransient.QRadPowerSpectrumAna('F:\BlinkTransient\A082\0 sf1\20180731_noPEST_03 (sf1)\Trials.mat','drift');
-					[PS_B, sFreqs_B, tFreqs_B] = BlinkTransient.QRadPowerSpectrumAna('F:\BlinkTransient\A082\0 sf1\20180731_noPEST_03 (sf1)\Trials.mat','blink');
-					[PS_DB, sFreqs_DB, tFreqs_DB] = BlinkTransient.QRadPowerSpectrumAna('F:\BlinkTransient\A082\0 sf1\20180731_noPEST_03 (sf1)\Trials.mat','drift+blink');
-
+					[PS_D, sFreqs_D, tFreqs_D] = BlinkTransient.QRadPowerSpectrumAna(dataFileName,'drift');
+					[PS_B, sFreqs_B, tFreqs_B] = BlinkTransient.QRadPowerSpectrumAna(dataFileName,'blink');
+					[PS_DB, sFreqs_DB, tFreqs_DB] = BlinkTransient.QRadPowerSpectrumAna(dataFileName,'drift+blink');
+					
 					PSD_Gain.PS_B = PS_B;
 					PSD_Gain.sFreqs_B = sFreqs_B;
 					PSD_Gain.tFreqs_B = tFreqs_B;
@@ -6261,7 +7311,8 @@ classdef BlinkTransient < handle
 				return;
 			end
 
-			set( figure, 'NumberTitle', 'off', 'name', [ 'PSDSummary.' version ] );
+
+			set( figure, 'NumberTitle', 'off', 'name', [ 'PSDSummary.' version, '.', dataFileName ] );
 			FontSize = 24;
 			LineWidth = 2;
 			subplot(1,2,1);
@@ -6282,9 +7333,12 @@ classdef BlinkTransient < handle
 				y = interp2( tFreqs_DB, sFreqs_DB, PS_DB, f(iF), sFreqs_DB, 'linear' );
 				plot( sFreqs_DB, y, '-', 'LineWidth', LineWidth, 'color', colors{iF}, 'DisplayName', sprintf( '%d Hz Drift+blink', f(iF) ) );
 			end
-			plot( sFreqs_D, sum( PS_D(:,2:end), 2 ) * (tFreqs_D(2) - tFreqs_D(1)), '--', 'LineWidth', LineWidth, 'color', colors{4}, 'DisplayName', 'NonZero Hz Drift' );
+			cut = 10;%min(tFreqs_D(end),tFreqs_DB(end));
+			% plot( sFreqs_D, sum( PS_D(:,2:end), 2 ) * (tFreqs_D(2) - tFreqs_D(1)), '--', 'LineWidth', LineWidth, 'color', colors{4}, 'DisplayName', 'NonZero Hz Drift' );
+			plot( sFreqs_D, sum( PS_D( :, 0 < tFreqs_D & tFreqs_D < cut ), 2 ) * (tFreqs_D(2) - tFreqs_D(1)), '--', 'LineWidth', LineWidth, 'color', colors{4}, 'DisplayName', 'NonZero Hz Drift' );
 			% plot( sFreqs_B, sum( PS_B(:,2:end), 2 ) * (tFreqs_B(2) - tFreqs_B(1)), ':', 'LineWidth', LineWidth, 'color', colors{4}, 'DisplayName', 'NonZero Hz Blink' );
-			plot( sFreqs_DB, sum( PS_DB(:,2:end), 2 ) * (tFreqs_DB(2) - tFreqs_DB(1)), '-', 'LineWidth', LineWidth, 'color', colors{4}, 'DisplayName', 'NonZero Hz Drift+blink' );
+			% plot( sFreqs_DB, sum( PS_DB(:,2:end), 2 ) * (tFreqs_DB(2) - tFreqs_DB(1)), '-', 'LineWidth', LineWidth, 'color', colors{4}, 'DisplayName', 'NonZero Hz Drift+blink' );
+			plot( sFreqs_DB, sum( PS_DB( :, 0 < tFreqs_DB & tFreqs_DB < cut ), 2 ) * (tFreqs_DB(2) - tFreqs_DB(1)), '-', 'LineWidth', LineWidth, 'color', colors{4}, 'DisplayName', 'NonZero Hz Drift+blink' );
 			
 			names = { num2str(f(1)), num2str(f(2)), num2str(f(3)), 'NonZero' };
 			for( i = 1 : 4 )
@@ -6293,8 +7347,9 @@ classdef BlinkTransient < handle
 			h(end+1) = plot( -1, -1, 'k--', 'LineWidth', LineWidth, 'DisplayName', 'Drift' );
 			% h(end+1) = plot( -1, -1, 'k:', 'LineWidth', LineWidth, 'DisplayName', 'Blink' );
 			h(end+1) = plot( -1, -1, 'k', 'LineWidth', LineWidth, 'DisplayName', 'Drift+blink' );
-			set( legend(h), 'location', 'Southeast' );
 			set( gca, 'FontSize', FontSize, 'LineWidth', LineWidth, 'XScale', 'log', 'YScale', 'log', 'XLim', [sFreqs_D(2), 20], 'XTick', [1 10], 'XTickLabel', [1 10] );
+			plot( [3 3], get(gca,'YLim'), 'k:' );
+			set( legend(h), 'location', 'Southeast' );
 			xlabel('Spatial frequency (cpd)');
 			ylabel('Power spectral density');
 
