@@ -1786,8 +1786,8 @@ classdef BlinkTransient < handle
 
 				for( iTrial = 1 : size(trials,2) )
 					notracks = trials(iTrial).notracks;
-					% notracks.start( notracks.duration / trials(1).sRate * 1000 < 15 ) = [];
-					% notracks.duration( notracks.duration / trials(1).sRate * 1000 < 15 ) = [];
+					% notracks.start( notracks.duration / trials(iTrial).sRate * 1000 < 15 ) = [];
+					% notracks.duration( notracks.duration / trials(iTrial).sRate * 1000 < 15 ) = [];
 					index(iTrial) = index(iTrial) && sum( max( 0, ...
 						min( (notracks.start+notracks.duration-1)/trials(iTrial).sRate*1000, trials(iTrial).tMaskOn-trials(iTrial).tTrialStart ) - ...
 							max( (notracks.start-1)/trials(iTrial).sRate*1000, trials(iTrial).tRampOn-trials(iTrial).tTrialStart ) ) ) < 15;
@@ -3970,7 +3970,7 @@ classdef BlinkTransient < handle
 			fprintf('%s\n', folder);
 			if( size(folder,2) > 10 && strcmpi( folder(end-10:end), 'calibration' ) ) return; end
 			
-			if( exist( [folder,'/Trials.mat'], 'file' ) == 2 )%&& isempty(strfind(folder,'DDPI')) )
+			if(0&& exist( [folder,'/Trials.mat'], 'file' ) == 2 )%&& isempty(strfind(folder,'DDPI')) )
 				return;
 				load( [folder, '/Trials.mat'] );
 				if( ~isfield( Trials, 'sRate' ) )
@@ -3983,8 +3983,10 @@ classdef BlinkTransient < handle
 				Trials = orderfields(Trials);
 				save( [ folder, '/', 'Trials.mat' ], 'Trials' );
 			% else
-				% delete( [folder,'/Trials.mat'] );
-				return;
+			end
+			if( exist( [folder,'/Trials.mat'], 'file' ) == 2 )
+				delete( [folder,'/Trials.mat'] );
+				% return;
 			end
 			% return;
 
@@ -4030,6 +4032,8 @@ classdef BlinkTransient < handle
 				for( iTrial = size(data.user,1) : -1 : 1 )
 					trial = createTrial( iTrial, data.x{iTrial}, data.y{iTrial}, data.triggers{iTrial}.blink, data.triggers{iTrial}.notrack, ones(1,size(data.x{iTrial},2)), [], sRate );
 					% trial = createTrial( iTrial, [], [], [], [], 0 );
+					trial.notracks.start( trial.notracks.duration / sRate * 1000 < 5 ) = [];
+					trial.notracks.duration( trial.notracks.duration / sRate * 1000 < 5 ) = [];
 					trial = findSaccades( trial, 'minvel', 180, 'minsa', 30 );	% min arc
 					trial = findMicrosaccades( trial, 'minvel', 180, 'minmsa', 3, 'maxmsa', 30 );	% min arc
 			  		trial = findDrifts(trial);
