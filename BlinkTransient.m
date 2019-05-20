@@ -1964,7 +1964,8 @@ classdef BlinkTransient < handle
 			    		g = 1;	% gain, which modulates the slope of the S-curve
 			    		thresh = 0;%60;%0.2;
 			    		% LN_FRs.NoBlink(iTrial,:) = K ./ ( 1 + exp( -g * (L_FRs.NoBlink(iTrial,:) - thresh) ) );
-			    		LN_FRs.NoBlink(iTrial,:) = max( L_FRs.NoBlink(iTrial,:), 0 );
+			    		base = 10;	% baseline activity
+			    		LN_FRs.NoBlink(iTrial,:) = max( L_FRs.NoBlink(iTrial,:) + base, 0 );
 
 			    		%% Blink condition
 			    		Bt = ones(1,T);
@@ -1985,7 +1986,7 @@ classdef BlinkTransient < handle
 			    		g = 1;	% gain, which modulates the slope of the S-curve
 			    		thresh = 0;%60;%0.2;
 			    		% LN_FRs.Blink(iTrial,:) = K ./ ( 1 + exp( -g * (L_FRs.Blink(iTrial,:) - thresh) ) );
-			    		LN_FRs.Blink(iTrial,:) = max( L_FRs.Blink(iTrial,:), 0 );
+			    		LN_FRs.Blink(iTrial,:) = max( L_FRs.Blink(iTrial,:) + base, 0 );
 
 					end
 					L_FRs.NoBlink( isnan(L_FRs.NoBlink(:,1)), : ) = [];
@@ -1997,8 +1998,8 @@ classdef BlinkTransient < handle
 					L_FRs.Blink( :, 1:100 ) = [];
 					LN_FRs.Blink( :, 1:100 ) = [];
 
-					Power.NoBlink = var( LN_FRs.NoBlink.^2, 0, 2 );
-					Power.Blink = var( LN_FRs.Blink.^2, 0, 2 );
+					Power.NoBlink = var( LN_FRs.NoBlink, 0, 2 );
+					Power.Blink = var( LN_FRs.Blink, 0, 2 );
 
 					ShowFigure( folders(iFolder).name, L_FRs, LN_FRs, Power );
 					saveas( gcf, [ destFolder, '\FV_Power_', folders(iFolder).name(1:end-4), '_withRamp', num2str(withRamp), '.fig' ] );
