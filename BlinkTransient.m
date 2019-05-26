@@ -1753,6 +1753,89 @@ classdef BlinkTransient < handle
 		end
 
 
+		function Supplementals20190525()
+			sbjs 	= { 'Bin',	'A058',	'A082',	'A088', 'A002', 'A050', 'A098', 'A092', 'A029', 'A037', 'A043', 'A025' };
+			folders = { 'F:\BlinkTransient\Bin\Extracted_0.5s_sf3',...	% 0.5s
+						'F:\BlinkTransient\A058\Extracted_1s_sf3',...
+						'F:\BlinkTransient\A082\2 FixedLevels\Extracted_1s_sf3',...
+						'F:\BlinkTransient\A088\Extracted_1s_sf3',...
+						'F:\BlinkTransient\A002',...
+						'F:\BlinkTransient\A050',...
+						'F:\BlinkTransient\A098',...
+						'F:\BlinkTransient\A092',...
+						'F:\BlinkTransient\A029',...
+						'F:\BlinkTransient\A037',...
+						'F:\BlinkTransient\A043\Extracted_1s_sf3',...
+						'F:\BlinkTransient\A025' };
+			indices = { 1:29,...	% Bin
+						1:33,...	% A058
+						1:29,...	% A082
+						1:19,...	% A088
+						4:57,...	% A002
+						3:53,...	% A050
+						5:29,...	% A098
+						4:20,...	% A092
+						4:13,...	% A029
+						[4:36,41:45],...	% A037
+						1:19,...	% A043
+						8:32,...	% A025
+						};
+
+			n = size(sbjs,2);
+			nRows = floor( sqrt( size(sbjs,2) ) );
+			nCols = ceil( size(sbjs,2) / nRows );
+
+			set( figure, 'numbertitle', 'off', 'name', 'Pooled: SaccadesRate', 'color', 'w' );
+			for( iSbj = 1 : size(sbjs,2) )
+				subplot( nRows, nCols, iSbj );
+				BlinkTransient.SaccadesRate( folders{iSbj}, 'tRampOn', 'gaussian', 100, true, false );
+				title(sbjs{iSbj});
+				set( gca, 'YLim', [0 4] );
+				if(iSbj~=1) legend off; end
+				if( mod( iSbj-1, nCols ) )
+					set( gca, 'YTickLabel', [] );
+					ylabel([]);
+				end
+				if( (iSbj-1) / nCols < nRows-1 )
+					set( gca, 'XTickLabel', [] );
+					ylabel([]);
+				end
+			end
+
+			set( figure, 'numbertitle', 'off', 'name', 'Pooled: BlinkRT', 'color', 'w' );
+			for( iSbj = 1 : size(sbjs,2) )
+				BlinkTransient.BlinkRT( sbjs{iSbj}, folders{iSbj}, indices{iSbj}, 'tRampOn', false, true, [], false );
+				title(sbjs{iSbj});
+				set( gca, 'YLim', [0 4] );
+				if(iSbj~=1) legend off; end
+				if( mod( iSbj-1, nCols ) )
+					set( gca, 'YTickLabel', [] );
+					ylabel([]);
+				end
+				if( (iSbj-1) / nCols < nRows-1 )
+					set( gca, 'XTickLabel', [] );
+					ylabel([]);
+				end
+			end
+
+			%%%%%% MainSequence?
+			%%%%%% DriftCurvature? DriftDifussionConstant?
+			subplot( 3, n, 1 );
+			pos1 = get( gca, 'position' );
+			subplot( 3, n, n + 1 );
+			pos2 = get( gca, 'position' );
+			subplot( 3, n, n*2 + 1 );
+			pos3 = get( gca, 'position' );
+			set( axes( 'position', [0 0 1 1] ), 'visible', 'off' );
+			text( pos1(1)/3, pos1(2) + pos1(4)/2, 'All', 'FontWeight', 'bold', 'FontSize', 22, 'rotation', 90, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle' );
+			text( pos2(1)/3, pos2(2) + pos2(4)/2, 'Late', 'FontWeight', 'bold', 'FontSize', 22, 'rotation', 90, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle' );
+			text( pos3(1)/3, pos3(2) + pos3(4)/2, 'Early', 'FontWeight', 'bold', 'FontSize', 22, 'rotation', 90, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle' );
+			h = findall(gcf,'type','axes');
+			uistack( h(2:end), 'top' );
+			set( h(1), 'layer', 'bottom' );
+		end
+
+
 		function [performance, nTrials, sbjs] = PopulationPerformance( condition )
 			%% population comparison of performance with paired t-test
 			%	subjects: Bin, A058, A082, A088, A002, A050, A098, A092, A029, A037, A043, A025
@@ -4395,6 +4478,23 @@ classdef BlinkTransient < handle
 		end
 
 
+		function [Trials, ratio, indices] = ETScreen(Trials)
+			%% Screen the quality of eye traces and exclude trials with bad eye traces
+			%  ratio:	proportion of trials remained
+			for( iTrial = size(Trials,2) : -1 : 1 )
+				notracks = Trials(iTrial).notracks;
+				% notracks.start( notracks.duration / Trials(iTrial).sRate * 1000 < 15 ) = [];
+				% notracks.duration( notracks.duration / Trials(iTrial).sRate * 1000 < 15 ) = [];
+				index(iTrial) = sum( max( 0, ...
+					min( (notracks.start+notracks.duration-1)/Trials(iTrial).sRate*1000, Trials(iTrial).tMaskOn-Trials(iTrial).tTrialStart ) - ...
+						max( (notracks.start-1)/Trials(iTrial).sRate*1000, Trials(iTrial).tRampOn-Trials(iTrial).tTrialStart ) ) ) < 15;
+			end
+			Trials = Trials(index);
+			ratio = sum(index) / size(index,2);
+			indices = find(index);
+		end
+
+
 		function Data4Blinks = GetData4Blinks( folder, discardMicrosaccades, discardSaccades )
 			if( folder(end) == '/' || folder(end) == '\' ) folder(end) = []; end
 			if( nargin() < 2 ) discardMicrosaccades = true; end 		% by default, we discard trials with microsaccades (<30 arc mins) during stimulus
@@ -6386,6 +6486,7 @@ classdef BlinkTransient < handle
 				else
 					if( strcmp( list(i).name, 'Trials.mat' ) )
 						load( fullfile(folder, list(i).name), 'Trials' );
+						Trials = BlinkTransient.ETScreen(Trials);
 
 						tmpRT = zeros(size(Trials));
 						for( iTrial = size(Trials,2) : -1 : 1 )
@@ -6782,6 +6883,7 @@ classdef BlinkTransient < handle
 				else
 					if( strcmp( list(i).name, 'Trials.mat' ) )
 						load( fullfile(folder, list(i).name), 'Trials' );
+						Trials = BlinkTransient.ETScreen(Trials);
 						microsaccades = [Trials.microsaccades];
 						saccades = [Trials.saccades];
 						switch(lower(alignment))
