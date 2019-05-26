@@ -1788,19 +1788,36 @@ classdef BlinkTransient < handle
 			set( figure, 'numbertitle', 'off', 'name', 'Pooled: SaccadesRate', 'color', 'w' );
 			for( iSbj = 1 : size(sbjs,2) )
 				subplot( nRows, nCols, iSbj );
-				BlinkTransient.SaccadesRate( folders{iSbj}, 'tRampOn', 'gaussian', 100, true, false );
+				BlinkTransient.SaccadesRateV2( folders{iSbj}, indices{iSbj}, 'RampOn', 'gaussian', 100, true, false );
+				fill( [0 1500 1500 0], [0 0 4 4], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'c', 'FaceAlpha', 0.25, 'DisplayName', 'Ramp' );
+				if( strcmpi( sbjs{iSbj}, 'bin' ) )
+					fill( [1500 2000 2000 1500], [0 0 4 4], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'g', 'FaceAlpha', 0.25, 'DisplayName', 'Plateau' );
+				else
+					fill( [1500 2500 2500 1500], [0 0 4 4], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'g', 'FaceAlpha', 0.25, 'DisplayName', 'Plateau' );
+				end
 				title(sbjs{iSbj});
-				set( gca, 'YLim', [0 4] );
-				if(iSbj~=1) legend off; end
+				xlabel([]);
+				ylabel([]);
+				set( gca, 'XLim', [-1000 4000], 'YLim', [0 4] );
+				if( iSbj ~= size(sbjs,2) ) legend off; end
 				if( mod( iSbj-1, nCols ) )
 					set( gca, 'YTickLabel', [] );
-					ylabel([]);
 				end
 				if( (iSbj-1) / nCols < nRows-1 )
 					set( gca, 'XTickLabel', [] );
-					ylabel([]);
 				end
 			end
+			subplot( nRows, nCols, 1 );
+			pos1 = get( gca, 'position' );
+			subplot( nRows, nCols, size(sbjs,2) );
+			pos2 = get( gca, 'position' );
+			set( axes( 'position', [0 0 1 1] ), 'visible', 'off' );
+			text( pos1(1)/3*2, 0.5, 'Saccades rate (Hz)', 'FontWeight', 'bold', 'FontSize', 22, 'rotation', 90, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle' );
+			text( 0.5, pos2(2)/3, 'Time aligned to ramp onset (s)', 'FontWeight', 'bold', 'FontSize', 22, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle' );
+			h = findall(gcf,'type','axes');
+			uistack( h(2:end), 'top' );
+			set( h(1), 'layer', 'bottom' );
+			return;
 
 			set( figure, 'numbertitle', 'off', 'name', 'Pooled: BlinkRT', 'color', 'w' );
 			for( iSbj = 1 : size(sbjs,2) )
@@ -1814,12 +1831,13 @@ classdef BlinkTransient < handle
 				end
 				if( (iSbj-1) / nCols < nRows-1 )
 					set( gca, 'XTickLabel', [] );
-					ylabel([]);
+					xlabel([]);
 				end
 			end
 
 			%%%%%% MainSequence?
 			%%%%%% DriftCurvature? DriftDifussionConstant?
+			return;
 			subplot( 3, n, 1 );
 			pos1 = get( gca, 'position' );
 			subplot( 3, n, n + 1 );
@@ -6884,6 +6902,7 @@ classdef BlinkTransient < handle
 					if( strcmp( list(i).name, 'Trials.mat' ) )
 						load( fullfile(folder, list(i).name), 'Trials' );
 						Trials = BlinkTransient.ETScreen(Trials);
+						if( isempty(Trials) ) continue; end
 						microsaccades = [Trials.microsaccades];
 						saccades = [Trials.saccades];
 						switch(lower(alignment))
@@ -6928,6 +6947,12 @@ classdef BlinkTransient < handle
 									microsaccades(iTrial).start = microsaccades(iTrial).start / tmpTrials(iTrial).sRate * 1000 - ( tmpTrials(iTrial).tResponse - tmpTrials(iTrial).tTrialStart );
 									saccades(iTrial).start = saccades(iTrial).start / tmpTrials(iTrial).sRate * 1000 - ( tmpTrials(iTrial).tResponse - tmpTrials(iTrial).tTrialStart );
 								end
+							otherwise
+								for( iTrial = 1 : size(Trials,2) )
+									microsaccades(iTrial).start = microsaccades(iTrial).start / Trials(iTrial).sRate * 1000;
+									saccades(iTrial).start = saccades(iTrial).start / Trials(iTrial).sRate * 1000;
+								end
+
 						end
 						tMicrosaccades = round( [microsaccades.start] );
 						tSaccades = round( [saccades.start] );
@@ -7001,6 +7026,121 @@ classdef BlinkTransient < handle
 				curRates.rate.saccades = ( curRates.rate.saccades * curRates.nTrials + newRates.rate.saccades * newRates.nTrials ) / ( curRates.nTrials + newRates.nTrials );
 				curRates.tTicks = minTime : maxTime;
 				curRates.nTrials = curRates.nTrials + newRates.nTrials;
+			end
+		end
+
+		function rates = SaccadesRateV2( folder, indices, alignment, smooth, window, isPlot, isNewFigure )
+			%% alignment:					event to align the rates; by default, aligned to the time point of the first recorded eye position
+			%  window:						sliding window size (ms)
+			%  smooth:						'gaussian', 'square', 'raw'
+			%  rates:						structure array for "microsaccades" and "saccades" rate distributions
+			%    rates.rate.microsaccades:	rate for microsaccades (Hz)
+			%	 rates.rate.saccades:		rate for large saccades (Hz)
+			%    rates.tTicks:				timeline for rates.rate (ms)
+			%    rates.nTrials: 			number of trials used
+
+			if( nargin() < 3 || isempty(alignment) ) alignment = 'startTrial'; end
+			if( nargin() < 4 || isempty(smooth) ) smooth = 'raw'; end
+			if( nargin() < 5 || isempty(window) ) window = 10; end
+			if( nargin() < 6 || isempty(isPlot) ) isPlot = true; end
+			if( nargin() < 7 || isempty(isNewFigure) ) isNewFigure = true; end
+
+			rates.rate = [];
+			rates.tTicks = [];
+			rates.nTrials = 0;
+
+			Data4Blinks = BlinkTransient.GetLabeledTrials4Blinks(folder,[],[],'tRampOn',0,0);%,'tPlateauOn',0);
+			if( nargin() < 2 || isempty(indices) )
+				Trials = [Data4Blinks.trials];
+			else
+				Trials = [Data4Blinks(indices).trials];
+			end
+			Trials( isnan([Trials.hasBlink]) ) = [];
+			Trials( [Trials.tBlinkBeepOn] - [Trials.tRampOn] > -600 & ~[Trials.hasBlink] | [Trials.tBlinkBeepOn] - [Trials.tRampOn] < -600 & [Trials.hasBlink] ) = [];
+			Trials = BlinkTransient.ETScreen(Trials);
+
+			if( isempty(Trials) ) return; end
+			microsaccades = [Trials.microsaccades];
+			saccades = [Trials.saccades];
+			switch(lower(alignment))
+				case 'fpon'
+					for( iTrial = 1 : size(Trials,2) )
+						microsaccades(iTrial).start = microsaccades(iTrial).start / Trials(iTrial).sRate * 1000 - ( Trials(iTrial).tFpOn - Trials(iTrial).tTrialStart );
+						saccades(iTrial).start = saccades(iTrial).start / Trials(iTrial).sRate * 1000 - ( Trials(iTrial).tFpOn - Trials(iTrial).tTrialStart );
+					end
+				case 'rampon'
+					for( iTrial = 1 : size(Trials,2) )
+						microsaccades(iTrial).start = microsaccades(iTrial).start / Trials(iTrial).sRate * 1000 - ( Trials(iTrial).tRampOn - Trials(iTrial).tTrialStart );
+						saccades(iTrial).start = saccades(iTrial).start / Trials(iTrial).sRate * 1000 - ( Trials(iTrial).tRampOn - Trials(iTrial).tTrialStart );
+					end
+				case 'plateauon'
+					for( iTrial = 1 : size(Trials,2) )
+						microsaccades(iTrial).start = microsaccades(iTrial).start / Trials(iTrial).sRate * 1000 - ( Trials(iTrial).tPlateauOn - Trials(iTrial).tTrialStart );
+						saccades(iTrial).start = saccades(iTrial).start / Trials(iTrial).sRate * 1000 - ( Trials(iTrial).tPlateauOn - Trials(iTrial).tTrialStart );
+					end
+				case 'maskon'
+					for( iTrial = 1 : size(Trials,2) )
+						microsaccades(iTrial).start = microsaccades(iTrial).start / Trials(iTrial).sRate * 1000 - ( Trials(iTrial).tMaskOn - Trials(iTrial).tTrialStart );
+						saccades(iTrial).start = saccades(iTrial).start / Trials(iTrial).sRate * 1000 - ( Trials(iTrial).tMaskOn - Trials(iTrial).tTrialStart );
+					end
+				case 'blink'	% first blink after beep for blink
+					index = false(size(Trials));
+					for( iTrial = 1 : size(Trials,2) )
+						t = Trials(iTrial).blinks.start( find( Trials(iTrial).blinks.start / Trials(iTrial).sRate * 1000 > Trials(iTrial).tBlinkBeepOn - Trials(iTrial).tTrialStart, 1, 'first' ) ) / Trials(iTrial).sRate * 1000;
+						if(isempty(t))
+							index(iTrial) = true;
+						else
+							microsaccades(iTrial).start = microsaccades(iTrial).start / Trials(iTrial).sRate * 1000 - t;
+							saccades(iTrial).start = saccades(iTrial).start / Trials(iTrial).sRate * 1000 - t;
+						end
+					end
+					microsaccades(index) = [];
+					saccades(index) = [];
+				case 'response'
+					tmpTrials = Trials( [Trials.tResponse] > 0 );
+					microsaccades = [tmpTrials.microsaccades];
+					saccades = [tmpTrials.saccades];
+					for( iTrial = 1 : size(tmpTrials,2) )
+						microsaccades(iTrial).start = microsaccades(iTrial).start / tmpTrials(iTrial).sRate * 1000 - ( tmpTrials(iTrial).tResponse - tmpTrials(iTrial).tTrialStart );
+						saccades(iTrial).start = saccades(iTrial).start / tmpTrials(iTrial).sRate * 1000 - ( tmpTrials(iTrial).tResponse - tmpTrials(iTrial).tTrialStart );
+					end
+				otherwise
+					for( iTrial = 1 : size(Trials,2) )
+						microsaccades(iTrial).start = microsaccades(iTrial).start / Trials(iTrial).sRate * 1000;
+						saccades(iTrial).start = saccades(iTrial).start / Trials(iTrial).sRate * 1000;
+					end
+
+			end
+			tMicrosaccades = round( [microsaccades.start] );
+			tSaccades = round( [saccades.start] );
+			if( ~isempty( [tMicrosaccades, tSaccades] ) )
+				rates.nTrials = size(microsaccades,2);
+				rates.tTicks = min( [ tMicrosaccades, tSaccades ] ) : max( [ tMicrosaccades, tSaccades ] );
+				rates.rate.microsaccades = ToolKit.Hist( tMicrosaccades, [ rates.tTicks - 0.5, rates.tTicks(end) + 0.5 ], false ) / rates.nTrials / 0.001;
+				rates.rate.saccades = ToolKit.Hist( tSaccades, [ rates.tTicks - 0.5, rates.tTicks(end) + 0.5 ], false ) / rates.nTrials / 0.001;
+				switch( lower(smooth) )
+					case 'gaussian'
+						SIGMA = window/2;
+		        		rates.rate.microsaccades = conv( rates.rate.microsaccades, normpdf( -4*SIGMA : 4*SIGMA, 0, SIGMA ), 'same' );
+		        		rates.rate.saccades = conv( rates.rate.saccades, normpdf( -4*SIGMA : 4*SIGMA, 0, SIGMA ), 'same' );
+					case 'square'
+						rates.rate.microsaccades = conv( rates.rate.microsaccades, ones(1,window)/window, 'same' );
+		        		rates.rate.saccades = conv( rates.rate.saccades, ones(1,window)/window, 'same' );
+				end
+			end
+
+			if( isPlot )
+				if( isNewFigure )
+					set( figure, 'NumberTitle', 'off', 'name', 'Fixational saccades rate', 'color', 'w' );
+				end
+				h(3) = plot( rates.tTicks, rates.rate.microsaccades + rates.rate.saccades, 'k', 'LineWidth', 2, 'DisplayName', 'overall' ); hold on;
+				h(2) = plot( rates.tTicks, rates.rate.microsaccades, 'r', 'LineWidth', 2, 'DisplayName', 'microsaccades' );
+				h(1) = plot( rates.tTicks, rates.rate.saccades, 'b', 'LineWidth', 2, 'DisplayName', 'saccades' );
+				legend(h);
+				set( gca, 'box', 'off', 'LineWidth', 2, 'FontSize', 20 );
+				xlabel( 'Time (ms)' );
+				ylabel( 'Rates (Hz)' );
+				title( ['Aligned to ' alignment] );
 			end
 		end
 
