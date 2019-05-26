@@ -1688,6 +1688,27 @@ classdef BlinkTransient < handle
 						4:57,...
 						3:53 };
 
+			sbjs 	= { 'Bin',	'A058',	'A082',	'A088', 'A002', 'A050', 'A098', 'A092', 'A029' };
+			folders = { 'F:\BlinkTransient\Bin\Extracted_0.5s_sf3',...	% 0.5s
+						'F:\BlinkTransient\A058\Extracted_1s_sf3',...
+						'F:\BlinkTransient\A082\2 FixedLevels\Extracted_1s_sf3',...
+						'F:\BlinkTransient\A088\Extracted_1s_sf3',...
+						'F:\BlinkTransient\A002',...
+						'F:\BlinkTransient\A050',...
+						'F:\BlinkTransient\A098',...
+						'F:\BlinkTransient\A092',...
+						'F:\BlinkTransient\A029' };
+			indices = { 1:29,...	% Bin
+						1:33,...	% A058
+						1:29,...	% A082
+						1:19,...	% A088
+						4:57,...	% A002
+						3:53,...	% A050
+						5:29,...	% A098
+						4:20,...	% A092
+						4:13,...	% A029
+						};
+
 			for( iSbj = 1 : size(sbjs,2) )
 				fprintf( 'Processing data for %s...\n', sbjs{iSbj} );
 				data = BlinkTransient.GetLabeledTrials4Blinks( folders{iSbj}, [], [], 'tRampOn', 0, 0 );
@@ -1734,15 +1755,15 @@ classdef BlinkTransient < handle
 
 		function [performance, nTrials, sbjs] = PopulationPerformance( condition )
 			%% population comparison of performance with paired t-test
-			%	subjects: Bin, A058, A082, A088, A002, A050, A098, A037, A043
+			%	subjects: Bin, A058, A082, A088, A002, A050, A098, A092, A029, A037, A043, A025
 			%	sf:	3 cpd
 			%	ramp: 1.5s
-			%	plateau:	0.5s (Bin); 1s (A058, A082, A088, A002, A050, A098, A037, A043)
+			%	plateau:	0.5s (Bin); 1s (A058, A082, A088, A002, A050, A098, A092, A029, A037, A043, A025)
 
 			if( nargin() < 1 ) condition = 'drift'; end
 
 			%% all data, contrast level might vary a little bit for each subject in order to achieve an average performance of about 80%
-			sbjs 	= { 'Bin',	'A058',	'A082',	'A088', 'A002', 'A050', 'A098', 'A037', 'A043' };
+			sbjs 	= { 'Bin',	'A058',	'A082',	'A088', 'A002', 'A050', 'A098', 'A092', 'A029', 'A037', 'A043', 'A025' };
 			folders = { 'F:\BlinkTransient\Bin\Extracted_0.5s_sf3',...	% 0.5s
 						'F:\BlinkTransient\A058\Extracted_1s_sf3',...
 						'F:\BlinkTransient\A082\2 FixedLevels\Extracted_1s_sf3',...
@@ -1750,24 +1771,31 @@ classdef BlinkTransient < handle
 						'F:\BlinkTransient\A002',...
 						'F:\BlinkTransient\A050',...
 						'F:\BlinkTransient\A098',...
+						'F:\BlinkTransient\A092',...
+						'F:\BlinkTransient\A029',...
 						'F:\BlinkTransient\A037',...
-						'F:\BlinkTransient\A043\Extracted_1s_sf3' };
-			indices = { 1:29,...
-						1:33,...
-						1:29,...
-						1:19,...
-						4:57,...
-						3:53,...
-						5:22,...
-						[4:36,41:45],...
-						1:19 };
+						'F:\BlinkTransient\A043\Extracted_1s_sf3',...
+						'F:\BlinkTransient\A025' };
+			indices = { 1:29,...	% Bin
+						1:33,...	% A058
+						1:29,...	% A082
+						1:19,...	% A088
+						4:57,...	% A002
+						3:53,...	% A050
+						5:29,...	% A098
+						4:20,...	% A092
+						4:13,...	% A029
+						[4:36,41:45],...	% A037
+						1:19,...	% A043
+						8:32,...	% A025
+						};
 			if( strcmpi( condition, 'all' ) )
 				nSbjs = size(sbjs,2);
 			else
-				nSbjs = size(sbjs,2) - 2;
+				nSbjs = size(sbjs,2) - 3;
 			end
 
-			for( iSbj = nSbjs : -1 : 7 )
+			for( iSbj = nSbjs : -1 : 1 )
 				if( strcmpi( condition, 'all' ) )
 					BlinkTransient.FixLevelEffect( sbjs{iSbj}, folders{iSbj}, mat2cell( indices{iSbj}, 1, ones(size(indices{iSbj})) ), [], [], true );
 				else
@@ -1809,7 +1837,7 @@ classdef BlinkTransient < handle
 			else isShowValue = false; end
 			isShowValue = true;
 
-			colors = { [0.5 0.5 1], [0.5 1 1], [0.5 1 0.5], [1 0.5 1], [1 0.5 0.5], [1 1 0.5], [1 0.8 0.6], [0.8 1 0.6], [0.8 0.6 1] };
+			colors = { [0.5 0.5 1], [0.5 1 1], [0.5 1 0.5], [1 0.5 1], [1 0.5 0.5], [1 1 0.5], [1 0.8 0.6], [1 0.6 0.8], [0.8 1 0.6], [0.8 0.6 1], [0.6 1 0.8], [0.6 0.8 1] };
 			
 			subplot(1,2,1); hold on;
 			for( i = 1 : size(performance.blink,2) )
@@ -4960,6 +4988,26 @@ classdef BlinkTransient < handle
 				end
 				% data(iGroup).trialsWithoutBlink = data(iGroup).trialsWithBlink(iii);
 				% data(iGroup).trialsWithBlink(iii) = [];
+			end
+
+			%% remove trials with too much notracks during stimulus
+			trials = [];
+			for( iGroup = 1 : size(data,2) )
+				trials{2} = data(iGroup).trialsWithoutBlink;	% tirals only with drifts
+				trials{1} = data(iGroup).trialsWithBlink;		% trials only with blinks
+				for( j = 1 : size(trials,2) )
+					index = true( size(trials{j}) );
+					for( iTrial = 1 : size(trials{j},2) )
+						notracks = trials{j}(iTrial).notracks;
+						index(iTrial) = sum( max( 0, ...
+									min( (notracks.start+notracks.duration-1)/trials{j}(iTrial).sRate*1000, trials{j}(iTrial).tMaskOn-trials{j}(iTrial).tTrialStart ) - ...
+									max( (notracks.start-1)/trials{j}(iTrial).sRate*1000, trials{j}(iTrial).tRampOn-trials{j}(iTrial).tTrialStart ) ) ) < 15;
+					end
+					trials{j} = trials{j}(index);
+				end
+				data(iGroup).trialsWithBlink = trials{1};
+				data(iGroup).trialsWithoutBlink = trials{2};
+
 			end
 
 			if(isNewFigure)
