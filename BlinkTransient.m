@@ -1753,7 +1753,8 @@ classdef BlinkTransient < handle
 		end
 
 
-		function Supplementals20190525()
+		function Supplementals20190527( flags )
+			if( nargin() < 1 || isempty(flags) ) flags = 2^8-1; end
 			sbjs 	= { 'Bin',	'A058',	'A082',	'A088', 'A002', 'A050', 'A098', 'A092', 'A029', 'A037', 'A043', 'A025' };
 			folders = { 'F:\BlinkTransient\Bin\Extracted_0.5s_sf3',...	% 0.5s
 						'F:\BlinkTransient\A058\Extracted_1s_sf3',...
@@ -1784,73 +1785,104 @@ classdef BlinkTransient < handle
 			n = size(sbjs,2);
 			nRows = floor( sqrt( size(sbjs,2) ) );
 			nCols = ceil( size(sbjs,2) / nRows );
-
-			%% SaccadesRate
-			set( figure, 'numbertitle', 'off', 'name', 'Pooled: SaccadesRate aligned to RampOn', 'color', 'w' );
-			for( iSbj = 1 : size(sbjs,2) )
-				subplot( nRows, nCols, iSbj ); hold on;
-				fill( [0 1500 1500 0], [0 0 4 4], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'c', 'FaceAlpha', 0.25, 'DisplayName', 'Ramp' );
-				if( strcmpi( sbjs{iSbj}, 'bin' ) )
-					fill( [1500 2000 2000 1500], [0 0 4 4], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'g', 'FaceAlpha', 0.25, 'DisplayName', 'Plateau' );
-				else
-					fill( [1500 2500 2500 1500], [0 0 4 4], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'g', 'FaceAlpha', 0.25, 'DisplayName', 'Plateau' );
-				end
-				rates = BlinkTransient.SaccadesRate( folders{iSbj}, indices{iSbj}, 'RampOn', 'gaussian', 100, true, false );
-				title( [sbjs{iSbj}, ' | n=', num2str(rates.nTrials)]);
-				set( gca, 'YMinorTick', 'on' );
-				xlabel([]);
-				ylabel([]);
-				set( gca, 'XLim', [-1000 4000], 'YLim', [0 4] );
-				if( iSbj ~= size(sbjs,2) ) legend off; end
-				if( mod( iSbj-1, nCols ) )
-					set( gca, 'YTickLabel', [] );
-				end
-				if( (iSbj-1) / nCols < nRows-1 )
-					set( gca, 'XTickLabel', [] );
-				end
-			end
+			figure;
 			subplot( nRows, nCols, 1 );
 			pos1 = get( gca, 'position' );
 			subplot( nRows, nCols, size(sbjs,2) );
 			pos2 = get( gca, 'position' );
-			set( axes( 'position', [0 0 1 1] ), 'visible', 'off' );
-			text( pos1(1)/3*2, 0.5, 'Saccades rate (Hz)', 'FontWeight', 'bold', 'FontSize', 22, 'rotation', 90, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle' );
-			text( 0.5, pos2(2)/3, 'Time aligned to ramp onset (s)', 'FontWeight', 'bold', 'FontSize', 22, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle' );
-			h = findall(gcf,'type','axes');
-			uistack( h(2:end), 'top' );
-			set( h(1), 'layer', 'bottom' );
+			close(gcf);
+
+			%% SaccadesRate
+			if( bitget(flags,1) )
+				set( figure, 'numbertitle', 'off', 'name', 'Pooled: SaccadesRate aligned to RampOn', 'color', 'w' );
+				for( iSbj = 1 : size(sbjs,2) )
+					subplot( nRows, nCols, iSbj ); hold on;
+					fill( [0 1500 1500 0], [0 0 4 4], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'c', 'FaceAlpha', 0.25, 'DisplayName', 'Ramp' );
+					if( strcmpi( sbjs{iSbj}, 'bin' ) )
+						fill( [1500 2000 2000 1500], [0 0 4 4], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'g', 'FaceAlpha', 0.25, 'DisplayName', 'Plateau' );
+					else
+						fill( [1500 2500 2500 1500], [0 0 4 4], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'g', 'FaceAlpha', 0.25, 'DisplayName', 'Plateau' );
+					end
+					rates = BlinkTransient.SaccadesRate( folders{iSbj}, indices{iSbj}, 'RampOn', 'gaussian', 100, true, false );
+					title( [sbjs{iSbj}, ' | n=', num2str(rates.nTrials)]);
+					set( gca, 'YMinorTick', 'on' );
+					xlabel([]);
+					ylabel([]);
+					set( gca, 'XLim', [-1000 4000], 'YLim', [0 4] );
+					if( iSbj ~= size(sbjs,2) ) legend off; end
+					if( mod( iSbj-1, nCols ) )
+						set( gca, 'YTickLabel', [] );
+					end
+					if( (iSbj-1) / nCols < nRows-1 )
+						set( gca, 'XTickLabel', [] );
+					end
+				end
+				set( axes( 'position', [0 0 1 1] ), 'visible', 'off' );
+				text( pos1(1)/3*2, 0.5, 'Saccades rate (Hz)', 'FontWeight', 'bold', 'FontSize', 22, 'rotation', 90, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle' );
+				text( 0.5, pos2(2)/3, 'Time aligned to ramp onset (s)', 'FontWeight', 'bold', 'FontSize', 22, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle' );
+				h = findall(gcf,'type','axes');
+				uistack( h(2:end), 'top' );
+				set( h(1), 'layer', 'bottom' );
+			end
 
 			%% BlinkRT
-			set( figure, 'numbertitle', 'off', 'name', 'Pooled: BlinkRT aligned to RampOn', 'color', 'w' );
-			for( iSbj = 1 : size(sbjs,2) )
-				subplot( nRows, nCols, iSbj ); hold on;
-				yTop = 0.3;
-				h(2) = fill( [0 1500 1500 0], [0 0 yTop yTop], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'c', 'FaceAlpha', 0.25, 'DisplayName', 'Ramp' );
-				if( strcmpi( sbjs{iSbj}, 'bin' ) )
-					h(1) = fill( [1500 2000 2000 1500], [0 0 yTop yTop], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'g', 'FaceAlpha', 0.25, 'DisplayName', 'Plateau' );
-				else
-					h(1) = fill( [1500 2500 2500 1500], [0 0 yTop yTop], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'g', 'FaceAlpha', 0.25, 'DisplayName', 'Plateau' );
+			if( bitget( flags, 2 ) )
+				set( figure, 'numbertitle', 'off', 'name', 'Pooled: BlinkRT aligned to RampOn', 'color', 'w' );
+				for( iSbj = 1 : size(sbjs,2) )
+					subplot( nRows, nCols, iSbj ); hold on;
+					yTop = 0.3;
+					h(2) = fill( [0 1500 1500 0], [0 0 yTop yTop], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'c', 'FaceAlpha', 0.25, 'DisplayName', 'Ramp' );
+					if( strcmpi( sbjs{iSbj}, 'bin' ) )
+						h(1) = fill( [1500 2000 2000 1500], [0 0 yTop yTop], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'g', 'FaceAlpha', 0.25, 'DisplayName', 'Plateau' );
+					else
+						h(1) = fill( [1500 2500 2500 1500], [0 0 yTop yTop], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'g', 'FaceAlpha', 0.25, 'DisplayName', 'Plateau' );
+					end
+					RT = BlinkTransient.BlinkRT( sbjs{iSbj}, folders{iSbj}, indices{iSbj}, 'tRampOn', [], true, 50, false );
+					title( [sbjs{iSbj}, ' | n=', num2str(size(RT,2))] );
+					set( gca, 'YMinorTick', 'on', 'YLim', [0 yTop] );
+					xlabel([]);
+					ylabel([]);
+					if( iSbj ~= size(sbjs,2) ) legend off; end
+					if( mod( iSbj-1, nCols ) )
+						set( gca, 'YTickLabel', [] );
+					end
+					if( (iSbj-1) / nCols < nRows-1 )
+						set( gca, 'XTickLabel', [] );
+					end
 				end
-				RT = BlinkTransient.BlinkRT( sbjs{iSbj}, folders{iSbj}, indices{iSbj}, 'tRampOn', [], true, 50, false );
-				title( [sbjs{iSbj}, ' | n=', num2str(size(RT,2))] );
-				set( gca, 'YMinorTick', 'on', 'YLim', [0 yTop] );
-				xlabel([]);
-				ylabel([]);
-				if( iSbj ~= size(sbjs,2) ) legend off; end
-				if( mod( iSbj-1, nCols ) )
-					set( gca, 'YTickLabel', [] );
-				end
-				if( (iSbj-1) / nCols < nRows-1 )
-					set( gca, 'XTickLabel', [] );
-				end
+				legend( h([2 1]), 'location', 'NorthEast' );
+				set( axes( 'position', [0 0 1 1] ), 'visible', 'off' );
+				text( pos1(1)/3*2, 0.5, 'Proportion of trials', 'FontWeight', 'bold', 'FontSize', 22, 'rotation', 90, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle' );
+				text( 0.5, pos2(2)/3, 'Time aligned to ramp onset (s)', 'FontWeight', 'bold', 'FontSize', 22, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle' );
+				h = findall(gcf,'type','axes');
+				uistack( h(2:end), 'top' );
+				set( h(1), 'layer', 'bottom' );
 			end
-			legend( h([2 1]), 'location', 'NorthEast' );
-			set( axes( 'position', [0 0 1 1] ), 'visible', 'off' );
-			text( pos1(1)/3*2, 0.5, 'Proportion of trials', 'FontWeight', 'bold', 'FontSize', 22, 'rotation', 90, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle' );
-			text( 0.5, pos2(2)/3, 'Time aligned to ramp onset (s)', 'FontWeight', 'bold', 'FontSize', 22, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle' );
-			h = findall(gcf,'type','axes');
-			uistack( h(2:end), 'top' );
-			set( h(1), 'layer', 'bottom' );
+
+			%% BlinkDuration
+			if( bitget( flags, 3 ) )
+				set( figure, 'numbertitle', 'off', 'name', 'Pooled: BlinkDuration of Blink Trials', 'color', 'w' );
+				for( iSbj = 1 : size(sbjs,2) )
+					subplot( nRows, nCols, iSbj ); hold on;
+					[~, trials] = BlinkTransient.BlinkDuration( sbjs{iSbj}, folders{iSbj}, indices{iSbj}, [], true, 10, false );
+					title( [sbjs{iSbj}, ' | n=', num2str(size(trials,2))] );
+					set( gca, 'YMinorTick', 'on', 'YLim', [0 0.3] );
+					xlabel([]);
+					ylabel([]);
+					if( mod( iSbj-1, nCols ) )
+						set( gca, 'YTickLabel', [] );
+					end
+					if( (iSbj-1) / nCols < nRows-1 )
+						set( gca, 'XTickLabel', [] );
+					end
+				end
+				set( axes( 'position', [0 0 1 1] ), 'visible', 'off' );
+				text( pos1(1)/3*2, 0.5, 'Proportion of trials', 'FontWeight', 'bold', 'FontSize', 22, 'rotation', 90, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle' );
+				text( 0.5, pos2(2)/3, 'Blink duration (ms)', 'FontWeight', 'bold', 'FontSize', 22, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle' );
+				h = findall(gcf,'type','axes');
+				uistack( h(2:end), 'top' );
+				set( h(1), 'layer', 'bottom' );
+			end
 
 			%%%%%% MainSequence?
 			%%%%%% DriftCurvature? DriftDifussionConstant?
@@ -1919,6 +1951,7 @@ classdef BlinkTransient < handle
 				else
 					BlinkTransient.FixLevelEffect( sbjs{iSbj}, folders{iSbj}, mat2cell( indices{iSbj}, 1, ones(size(indices{iSbj})) ), false, false, true );
 				end
+				set( gca, 'YGrid', 'on', 'YMinorGrid', 'on' );
 				data = BlinkTransient.GetLabeledTrials4Blinks( folders{iSbj}, [], [], 'tRampOn', 0, 0 );
 				data = data(indices{iSbj});
 				for( i = 1 : size(data,2) )
@@ -1949,6 +1982,97 @@ classdef BlinkTransient < handle
 
 
 			set( figure, 'NumberTitle', 'off', 'name', sprintf( 'Population_%sTrials: 3cpd | 0.5sX1sbj + 1sX%dsbj', [upper(condition(1)), condition(2:end)], size(performance.blink,2)-1 ), 'color', 'w' );
+
+			[~, pVal, CI] = ttest( performance.noBlink, performance.blink, 'alpha', 0.05 )
+			if( pVal < 0.1 && pVal > 0.05 ) isShowValue = true;
+			else isShowValue = false; end
+			isShowValue = true;
+
+			colors = { [0.5 0.5 1], [0.5 1 1], [0.5 1 0.5], [1 0.5 1], [1 0.5 0.5], [1 1 0.5], [1 0.8 0.6], [1 0.6 0.8], [0.8 1 0.6], [0.8 0.6 1], [0.6 1 0.8], [0.6 0.8 1] };
+			
+			subplot(1,2,1); hold on;
+			for( i = 1 : size(performance.blink,2) )
+				plot( [1 3], [ performance.noBlink(i), performance.blink(i) ], '^--', 'MarkerSize', 10, 'LineWidth', 2, 'color', colors{i} );
+			end
+			plot( [1 3], [ mean(performance.noBlink), mean(performance.blink) ], 's-', 'MarkerSize', 12, 'LineWidth', 2, 'color', 'k' );
+			plot( [1 1 NaN 3 3], [ [-1 1] * std(performance.noBlink) + mean(performance.noBlink), NaN, [-1 1] * std(performance.blink) + mean(performance.blink) ], '-', 'LineWidth', 2, 'color', 'k' );
+			set( gca, 'XLim', [0 4], 'YLim', [0.6 1.1], 'YTick', 0.6:0.1:1, 'LineWidth', 2, 'XTick', [1 3], 'XTickLabel', {'No Blink', 'Blink'}, 'FontSize', 20 );
+			ToolKit.ShowSignificance( [1, 1.05], [3, 1.05], pVal, 0.02, isShowValue, 'FontSize', 24 );
+			ylabel('Performance');
+
+			subplot(1,2,2); hold on;
+			plot( [0 1], [0 1], 'k--', 'LineWidth', 1 );
+			for( i = 1 : size(performance.blink,2) )
+				plot( performance.noBlink(i), performance.blink(i), '^', 'MarkerSize', 10, 'LineWidth', 2, 'color', colors{i} );
+			end
+			plot( mean(performance.noBlink), mean(performance.blink), 's', 'MarkerSize', 12, 'LineWidth', 2, 'color', 'k' );
+			plot( [1 1] * mean(performance.noBlink), mean(performance.noBlink) - CI, 'k-', 'LineWidth', 2 );
+			set( gca, 'XLim', [0.5 1], 'YLim', [0.5 1], 'XTick', 0.5:0.1:1, 'YTick', 0.5:0.1:1, 'LineWidth', 2, 'FontSize', 20 );
+			xlabel('No Blink performance');
+			ylabel('Blink performance');
+		end
+
+
+		function [performance, nTrials, sbjs] = PopulationPerformanceCtrl( condition )
+			%% population comparison of performance with paired t-test; control experiment where blink was simulated with a brief blackout of the screen
+			%	subjects: A082, A002, A050, A092
+			%	sf:	3 cpd
+			%	ramp: 1.5s
+			%	plateau: 1s
+
+			if( nargin() < 1 ) condition = 'drift'; end
+
+			%% all data, contrast level might vary a little bit for each subject in order to achieve an average performance of about 80%
+			sbjs 	= { 'A082', 'A002', 'A050', 'A092' };
+			folders = { 'F:\BlinkTransient\0 SimulateBlinks\A082',...
+						'F:\BlinkTransient\0 SimulateBlinks\A002',...
+						'F:\BlinkTransient\0 SimulateBlinks\A050',...
+						'F:\BlinkTransient\0 SimulateBlinks\A092',...
+						 };
+			indices = { 3:42,...	% A082
+						1:25,...	% A002
+						3:31,...	% A050
+						1:10,...	% A092
+						};
+			nSbjs = size(sbjs,2);
+			
+			for( iSbj = nSbjs : -1 : 1 )
+				if( strcmpi( condition, 'all' ) )
+					BlinkTransient.FixLevelEffect( [sbjs{iSbj}, 'Ctrl'], folders{iSbj}, mat2cell( indices{iSbj}, 1, ones(size(indices{iSbj})) ), [], [], true );
+				else
+					BlinkTransient.FixLevelEffect( [sbjs{iSbj}, 'Ctrl'], folders{iSbj}, mat2cell( indices{iSbj}, 1, ones(size(indices{iSbj})) ), false, false, true );
+				end
+				set( gca, 'YGrid', 'on', 'YMinorGrid', 'on' );
+				data = BlinkTransient.GetLabeledTrials4Blinks( folders{iSbj}, [], [], 'tRampOn', 0, 0 );
+				data = data(indices{iSbj});
+				for( i = 1 : size(data,2) )
+					data(i).trials( [data(i).trials.tBlinkBeepOn] - [data(i).trials.tRampOn] > -600 & ~[data(i).trials.hasBlink] | [data(i).trials.tBlinkBeepOn] - [data(i).trials.tRampOn] < -600 & [data(i).trials.hasBlink] ) = [];
+				end
+				trials = [data.trials];
+
+				if( strcmpi( condition, 'all' ) )
+					index = true(size(trials));
+				else
+					index = ~[trials.hasSac] & ~[trials.hasMicrosac];
+				end
+
+				for( iTrial = 1 : size(trials,2) )
+					notracks = trials(iTrial).notracks;
+					% notracks.start( notracks.duration / trials(iTrial).sRate * 1000 < 15 ) = [];
+					% notracks.duration( notracks.duration / trials(iTrial).sRate * 1000 < 15 ) = [];
+					index(iTrial) = index(iTrial) && sum( max( 0, ...
+						min( (notracks.start+notracks.duration-1)/trials(iTrial).sRate*1000, trials(iTrial).tMaskOn-trials(iTrial).tTrialStart ) - ...
+							max( (notracks.start-1)/trials(iTrial).sRate*1000, trials(iTrial).tRampOn-trials(iTrial).tTrialStart ) ) ) < 15;
+				end
+
+				nTrials.blink(iSbj) = sum( [trials.hasBlink] & index & ( [trials.trialType] == 'c' | [trials.trialType] == 'e' ) );
+				nTrials.noBlink(iSbj) = sum( ~[trials.hasBlink] & index & ( [trials.trialType] == 'c' | [trials.trialType] == 'e' ) );
+				performance.blink(iSbj) = sum( [trials.hasBlink] & index & [trials.trialType] == 'c' ) / nTrials.blink(iSbj);
+				performance.noBlink(iSbj) = sum( ~[trials.hasBlink] & index & [trials.trialType] == 'c' ) / nTrials.noBlink(iSbj);
+			end
+
+
+			set( figure, 'NumberTitle', 'off', 'name', sprintf( 'Population_%sTrials_Ctrl: 3cpd | %dsbj', [upper(condition(1)), condition(2:end)], size(performance.blink,2) ), 'color', 'w' );
 
 			[~, pVal, CI] = ttest( performance.noBlink, performance.blink, 'alpha', 0.05 )
 			if( pVal < 0.1 && pVal > 0.05 ) isShowValue = true;
@@ -4380,6 +4504,11 @@ classdef BlinkTransient < handle
 				  		Trials(iTrial).blinks.duration = Trials(iTrial).blinks.duration(I);
 				  	else
 				  		Trials(iTrial).tBlinkBeepOn = Trials(iTrial).tRampOn - 700;
+				  		Trials(iTrial).blinks.start = [Trials(iTrial).blinks.start, round( (Trials(iTrial).tBlinkBeepOn - Trials(iTrial).tTrialStart + 300) / 1000 * Trials(iTrial).sRate + 1 ) ];
+				  		Trials(iTrial).blinks.duration = [Trials(iTrial).blinks.duration, round( 150 / 1000 * Trials(iTrial).sRate ) ];
+				  		[~,I] = sort( Trials(iTrial).blinks.start );
+				  		Trials(iTrial).blinks.start = Trials(iTrial).blinks.start(I);
+				  		Trials(iTrial).blinks.duration = Trials(iTrial).blinks.duration(I);
 				  	end
 				end
 				Trials(index) = [];
@@ -4654,13 +4783,16 @@ classdef BlinkTransient < handle
 						tUpper = LabeledData4Blinks(iFolder).trials(iTrial).tMaskOn - LabeledData4Blinks(iFolder).trials(iTrial).tTrialStart;
 					end
 
-					if( isempty( LabeledData4Blinks(iFolder).trials(iTrial).blinks.start ) ||...
+					if( any( ( LabeledData4Blinks(iFolder).trials(iTrial).blinks.start ) /sRate * 1000 > LabeledData4Blinks(iFolder).trials(iTrial).tBlinkBeepOn - LabeledData4Blinks(iFolder).trials(iTrial).tTrialStart ) &&...
+						( isempty( LabeledData4Blinks(iFolder).trials(iTrial).blinks.start ) ||...
 						all( LabeledData4Blinks(iFolder).trials(iTrial).tRampOn - LabeledData4Blinks(iFolder).trials(iTrial).tTrialStart > ( LabeledData4Blinks(iFolder).trials(iTrial).blinks.start + LabeledData4Blinks(iFolder).trials(iTrial).blinks.duration - 2 ) / sRate * 1000 |...
-						    (LabeledData4Blinks(iFolder).trials(iTrial).blinks.start-1)/sRate*1000 > tUpper ) )
+						    (LabeledData4Blinks(iFolder).trials(iTrial).blinks.start-1)/sRate*1000 > tUpper ) ) )
 						% no blink overlaps with ramp+plateau
 						LabeledData4Blinks(iFolder).trials(iTrial).hasBlink = false;
 					
-					elseif( ~isempty( LabeledData4Blinks(iFolder).trials(iTrial).blinks.start ) && sum( ( LabeledData4Blinks(iFolder).trials(iTrial).blinks.start -1 ) /sRate * 1000 > LabeledData4Blinks(iFolder).trials(iTrial).tFpOn - LabeledData4Blinks(iFolder).trials(iTrial).tTrialStart & (LabeledData4Blinks(iFolder).trials(iTrial).blinks.start + LabeledData4Blinks(iFolder).trials(iTrial).blinks.duration - 2)/sRate*1000 < tUpper ) == 1 &&...
+					elseif( any( ( LabeledData4Blinks(iFolder).trials(iTrial).blinks.start ) /sRate * 1000 > LabeledData4Blinks(iFolder).trials(iTrial).tBlinkBeepOn - LabeledData4Blinks(iFolder).trials(iTrial).tTrialStart ) &&...
+							~isempty( LabeledData4Blinks(iFolder).trials(iTrial).blinks.start ) &&...
+							sum( ( LabeledData4Blinks(iFolder).trials(iTrial).blinks.start -1 ) /sRate * 1000 > LabeledData4Blinks(iFolder).trials(iTrial).tFpOn - LabeledData4Blinks(iFolder).trials(iTrial).tTrialStart & (LabeledData4Blinks(iFolder).trials(iTrial).blinks.start + LabeledData4Blinks(iFolder).trials(iTrial).blinks.duration - 2)/sRate*1000 < tUpper ) == 1 &&...
 							any( LabeledData4Blinks(iFolder).trials(iTrial).(tLBEvent4Blink) + tLBOffset4Blink - LabeledData4Blinks(iFolder).trials(iTrial).tTrialStart <= ( LabeledData4Blinks(iFolder).trials(iTrial).blinks.start -1 ) /sRate * 1000 &...
 							    (LabeledData4Blinks(iFolder).trials(iTrial).blinks.start + LabeledData4Blinks(iFolder).trials(iTrial).blinks.duration - 2)/sRate*1000 <= tUpper + tUBOffset4Blink ) )
 						% start 1000ms after ramp on, end 300ms before mask on
@@ -6863,7 +6995,7 @@ classdef BlinkTransient < handle
 				data(i).trials = trials;
 			end
 
-			trials = [data(blockIndices).trials];
+			trials = BlinkTransient.ETScreen( [data(blockIndices).trials] );
 			trials = trials([trials.hasBlink]);
 			durations = zeros(size(trials));
 			for( iTrial = 1 : size(trials,2) )
@@ -6929,21 +7061,24 @@ classdef BlinkTransient < handle
 				end
 				edges = 0 : durStep : 500;
 				data = ToolKit.Hist( durations, edges, false );
+				data = data / sum(data);
 				bar( (edges(1:end-1) + edges(2:end)) / 2, data, 0.9, 'FaceColor', [0.4 0.4 0.4], 'LineStyle', 'none', 'FaceAlpha', 1 ); hold on;
 				med = median(durations);
 				plot( [1 1]*med, [0 max(data)*1.5], 'k--', 'LineWidth', 2 );
-				text( med, max(data)*1.45, sprintf( ' median = %.2fms', med ), 'HorizontalAlignment', 'left', 'VerticalAlignment', 'top', 'FontSize', 18 );
-				set( gca, 'XLim', [0 410], 'YLim', [0 max(data)*1.5], 'LineWidth', 1, 'box', 'off', 'FontSize', 20 );
+				text( med, 0.29, sprintf( ' %.2fms', med ), 'HorizontalAlignment', 'left', 'VerticalAlignment', 'top', 'FontSize', 18 );
+				set( gca, 'XLim', [0 410], 'YLim', [0 0.3], 'LineWidth', 1, 'box', 'off', 'FontSize', 20 );
 
-				t = mean( [edges(1:end-1); edges(2:end)] );
-				plot( t, pdf( fitKernel, t, params{:} ) * size(durations,2) * durStep, 'k', 'LineWidth', 2 );
-				x = get( gca, 'xlim' );
-				y = get( gca, 'ylim' );
-				text( mean(x), y(2),...
-					{ sprintf( 'Chi2\\_gof: $p=%.4f$', chi2_p );...
-					  sprintf( 'KS\\_Test:  $p = %.4f$', ks_p );...
-					  sprintf( [ '$f(x)=\\mbox{pdf}("%s",x,%.3f', repmat(',%.3f',1,size(params,2)-1), ')$' ], fitKernel, params{:} ) },...
-					'HorizontalAlignment', 'left', 'VerticalAlignment', 'top', 'interpreter', 'latex', 'FontSize', 20 );
+				if(isFit)
+					t = mean( [edges(1:end-1); edges(2:end)] );
+					plot( t, pdf( fitKernel, t, params{:} ) * size(durations,2) * durStep, 'k', 'LineWidth', 2 );
+					x = get( gca, 'xlim' );
+					y = get( gca, 'ylim' );
+					text( mean(x), y(2),...
+						{ sprintf( 'Chi2\\_gof: $p=%.4f$', chi2_p );...
+						  sprintf( 'KS\\_Test:  $p = %.4f$', ks_p );...
+						  sprintf( [ '$f(x)=\\mbox{pdf}("%s",x,%.3f', repmat(',%.3f',1,size(params,2)-1), ')$' ], fitKernel, params{:} ) },...
+						'HorizontalAlignment', 'left', 'VerticalAlignment', 'top', 'interpreter', 'latex', 'FontSize', 20 );
+				end
 
 				xlabel('Blink duration (ms)');
 				ylabel('Number of trials');
