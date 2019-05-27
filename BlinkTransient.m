@@ -1785,17 +1785,19 @@ classdef BlinkTransient < handle
 			nRows = floor( sqrt( size(sbjs,2) ) );
 			nCols = ceil( size(sbjs,2) / nRows );
 
+			%% SaccadesRate
 			set( figure, 'numbertitle', 'off', 'name', 'Pooled: SaccadesRate aligned to RampOn', 'color', 'w' );
 			for( iSbj = 1 : size(sbjs,2) )
 				subplot( nRows, nCols, iSbj );
-				rates = BlinkTransient.SaccadesRateV2( folders{iSbj}, indices{iSbj}, 'RampOn', 'gaussian', 100, true, false );
 				fill( [0 1500 1500 0], [0 0 4 4], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'c', 'FaceAlpha', 0.25, 'DisplayName', 'Ramp' );
 				if( strcmpi( sbjs{iSbj}, 'bin' ) )
 					fill( [1500 2000 2000 1500], [0 0 4 4], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'g', 'FaceAlpha', 0.25, 'DisplayName', 'Plateau' );
 				else
 					fill( [1500 2500 2500 1500], [0 0 4 4], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'g', 'FaceAlpha', 0.25, 'DisplayName', 'Plateau' );
 				end
+				rates = BlinkTransient.SaccadesRate( folders{iSbj}, indices{iSbj}, 'RampOn', 'gaussian', 100, true, false );
 				title( [sbjs{iSbj}, ' | n=', num2str(rates.nTrials)]);
+				set( gca, 'YMinorTick', 'on' );
 				xlabel([]);
 				ylabel([]);
 				set( gca, 'XLim', [-1000 4000], 'YLim', [0 4] );
@@ -1818,21 +1820,36 @@ classdef BlinkTransient < handle
 			uistack( h(2:end), 'top' );
 			set( h(1), 'layer', 'bottom' );
 
+			%% BlinkRT
 			set( figure, 'numbertitle', 'off', 'name', 'Pooled: BlinkRT aligned to RampOn', 'color', 'w' );
 			for( iSbj = 1 : size(sbjs,2) )
-				BlinkTransient.BlinkRT( sbjs{iSbj}, folders{iSbj}, indices{iSbj}, 'tRampOn', [], true, [], false );
-				title(sbjs{iSbj});
-				set( gca, 'YLim', [0 4] );
-				if(iSbj~=1) legend off; end
+				subplot( nRows, nCols, iSbj );
+				yTop = 0.01;
+				fill( [0 1500 1500 0], [0 0 yTop yTop], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'c', 'FaceAlpha', 0.25, 'DisplayName', 'Ramp' );
+				if( strcmpi( sbjs{iSbj}, 'bin' ) )
+					fill( [1500 2000 2000 1500], [0 0 yTop yTop], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'g', 'FaceAlpha', 0.25, 'DisplayName', 'Plateau' );
+				else
+					fill( [1500 2500 2500 1500], [0 0 yTop yTop], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'g', 'FaceAlpha', 0.25, 'DisplayName', 'Plateau' );
+				end
+				RT = BlinkTransient.BlinkRT( sbjs{iSbj}, folders{iSbj}, indices{iSbj}, 'tRampOn', [], true, 10, false );
+				title( [sbjs{iSbj}, ' | n=', num2str(size(RT,2))] );
+				set( gca, 'YMinorTick', 'on', 'YLim', [0 yTop] );
+				xlabel([]);
+				ylabel([]);
+				if( iSbj ~= size(sbjs,2) ) legend off; end
 				if( mod( iSbj-1, nCols ) )
 					set( gca, 'YTickLabel', [] );
-					ylabel([]);
 				end
 				if( (iSbj-1) / nCols < nRows-1 )
 					set( gca, 'XTickLabel', [] );
-					xlabel([]);
 				end
 			end
+			set( axes( 'position', [0 0 1 1] ), 'visible', 'off' );
+			text( pos1(1)/3*2, 0.5, 'Proportion of trials', 'FontWeight', 'bold', 'FontSize', 22, 'rotation', 90, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle' );
+			text( 0.5, pos2(2)/3, 'Time aligned to ramp onset (s)', 'FontWeight', 'bold', 'FontSize', 22, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle' );
+			h = findall(gcf,'type','axes');
+			uistack( h(2:end), 'top' );
+			set( h(1), 'layer', 'bottom' );
 
 			%%%%%% MainSequence?
 			%%%%%% DriftCurvature? DriftDifussionConstant?
@@ -6770,7 +6787,8 @@ classdef BlinkTransient < handle
 					else name = [name, 'Aligned2', alignEvt]; end
 					set( figure, 'NumberTitle', 'off', 'name', name, 'color', 'w' );
 				end
-				ToolKit.Hist( RT, min(RT) - tStep/2 : tStep : max(RT) + tStep/2 );
+				ToolKit.Hist( RT, min(RT) - tStep/2 : tStep : max(RT) + tStep/2, false, true );
+				set( findobj( gca, 'type', 'patch' ), 'FaceAlpha', 1, 'FaceColor', 'k' );
 				switch alignEvt
 					case 'tBlinkBeepOn'
 						x = [0 2000];
@@ -6812,7 +6830,7 @@ classdef BlinkTransient < handle
 				end
 				set( gca, 'XLim', x, 'box', 'off', 'LineWidth', 2, 'FontSize', 20 );
 				xlabel( sprintf( 'Time aligned to %s (ms)', alignEvt ) );
-				ylabel( 'Number of trials' );
+				ylabel( 'Proportion of trials' );
 			end
 		end
 
