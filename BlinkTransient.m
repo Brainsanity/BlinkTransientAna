@@ -1788,14 +1788,14 @@ classdef BlinkTransient < handle
 			set( figure, 'numbertitle', 'off', 'name', 'Pooled: SaccadesRate', 'color', 'w' );
 			for( iSbj = 1 : size(sbjs,2) )
 				subplot( nRows, nCols, iSbj );
-				BlinkTransient.SaccadesRateV2( folders{iSbj}, indices{iSbj}, 'RampOn', 'gaussian', 100, true, false );
+				rates = BlinkTransient.SaccadesRateV2( folders{iSbj}, indices{iSbj}, 'RampOn', 'gaussian', 100, true, false );
 				fill( [0 1500 1500 0], [0 0 4 4], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'c', 'FaceAlpha', 0.25, 'DisplayName', 'Ramp' );
 				if( strcmpi( sbjs{iSbj}, 'bin' ) )
 					fill( [1500 2000 2000 1500], [0 0 4 4], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'g', 'FaceAlpha', 0.25, 'DisplayName', 'Plateau' );
 				else
 					fill( [1500 2500 2500 1500], [0 0 4 4], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'g', 'FaceAlpha', 0.25, 'DisplayName', 'Plateau' );
 				end
-				title(sbjs{iSbj});
+				title( [sbjs{iSbj}, 'n=', num2str(rates.nTrials)]);
 				xlabel([]);
 				ylabel([]);
 				set( gca, 'XLim', [-1000 4000], 'YLim', [0 4] );
