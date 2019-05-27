@@ -1788,7 +1788,7 @@ classdef BlinkTransient < handle
 			%% SaccadesRate
 			set( figure, 'numbertitle', 'off', 'name', 'Pooled: SaccadesRate aligned to RampOn', 'color', 'w' );
 			for( iSbj = 1 : size(sbjs,2) )
-				subplot( nRows, nCols, iSbj );
+				subplot( nRows, nCols, iSbj ); hold on;
 				fill( [0 1500 1500 0], [0 0 4 4], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'c', 'FaceAlpha', 0.25, 'DisplayName', 'Ramp' );
 				if( strcmpi( sbjs{iSbj}, 'bin' ) )
 					fill( [1500 2000 2000 1500], [0 0 4 4], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'g', 'FaceAlpha', 0.25, 'DisplayName', 'Plateau' );
@@ -1823,15 +1823,15 @@ classdef BlinkTransient < handle
 			%% BlinkRT
 			set( figure, 'numbertitle', 'off', 'name', 'Pooled: BlinkRT aligned to RampOn', 'color', 'w' );
 			for( iSbj = 1 : size(sbjs,2) )
-				subplot( nRows, nCols, iSbj );
-				yTop = 0.01;
+				subplot( nRows, nCols, iSbj ); hold on;
+				yTop = 0.3;
 				fill( [0 1500 1500 0], [0 0 yTop yTop], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'c', 'FaceAlpha', 0.25, 'DisplayName', 'Ramp' );
 				if( strcmpi( sbjs{iSbj}, 'bin' ) )
 					fill( [1500 2000 2000 1500], [0 0 yTop yTop], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'g', 'FaceAlpha', 0.25, 'DisplayName', 'Plateau' );
 				else
 					fill( [1500 2500 2500 1500], [0 0 yTop yTop], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'g', 'FaceAlpha', 0.25, 'DisplayName', 'Plateau' );
 				end
-				RT = BlinkTransient.BlinkRT( sbjs{iSbj}, folders{iSbj}, indices{iSbj}, 'tRampOn', [], true, 10, false );
+				RT = BlinkTransient.BlinkRT( sbjs{iSbj}, folders{iSbj}, indices{iSbj}, 'tRampOn', [], true, 50, false );
 				title( [sbjs{iSbj}, ' | n=', num2str(size(RT,2))] );
 				set( gca, 'YMinorTick', 'on', 'YLim', [0 yTop] );
 				xlabel([]);
@@ -6787,8 +6787,8 @@ classdef BlinkTransient < handle
 					else name = [name, 'Aligned2', alignEvt]; end
 					set( figure, 'NumberTitle', 'off', 'name', name, 'color', 'w' );
 				end
-				ToolKit.Hist( RT, min(RT) - tStep/2 : tStep : max(RT) + tStep/2, false, true );
-				set( findobj( gca, 'type', 'patch' ), 'FaceAlpha', 1, 'FaceColor', 'k' );
+				ToolKit.Hist( RT, min(RT) - tStep/2 : tStep : max(RT) + tStep/2, true, true );
+				set( findobj( gca, 'type', 'bar' ), 'FaceAlpha', 1, 'FaceColor', 'k' );
 				switch alignEvt
 					case 'tBlinkBeepOn'
 						x = [0 2000];
