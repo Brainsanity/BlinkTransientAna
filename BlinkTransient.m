@@ -1785,7 +1785,7 @@ classdef BlinkTransient < handle
 			nRows = floor( sqrt( size(sbjs,2) ) );
 			nCols = ceil( size(sbjs,2) / nRows );
 
-			set( figure, 'numbertitle', 'off', 'name', 'Pooled: SaccadesRate', 'color', 'w' );
+			set( figure, 'numbertitle', 'off', 'name', 'Pooled: SaccadesRate aligned to RampOn', 'color', 'w' );
 			for( iSbj = 1 : size(sbjs,2) )
 				subplot( nRows, nCols, iSbj );
 				rates = BlinkTransient.SaccadesRateV2( folders{iSbj}, indices{iSbj}, 'RampOn', 'gaussian', 100, true, false );
@@ -1795,7 +1795,7 @@ classdef BlinkTransient < handle
 				else
 					fill( [1500 2500 2500 1500], [0 0 4 4], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'g', 'FaceAlpha', 0.25, 'DisplayName', 'Plateau' );
 				end
-				title( [sbjs{iSbj}, 'n=', num2str(rates.nTrials)]);
+				title( [sbjs{iSbj}, ' | n=', num2str(rates.nTrials)]);
 				xlabel([]);
 				ylabel([]);
 				set( gca, 'XLim', [-1000 4000], 'YLim', [0 4] );
@@ -1817,11 +1817,10 @@ classdef BlinkTransient < handle
 			h = findall(gcf,'type','axes');
 			uistack( h(2:end), 'top' );
 			set( h(1), 'layer', 'bottom' );
-			return;
 
-			set( figure, 'numbertitle', 'off', 'name', 'Pooled: BlinkRT', 'color', 'w' );
+			set( figure, 'numbertitle', 'off', 'name', 'Pooled: BlinkRT aligned to RampOn', 'color', 'w' );
 			for( iSbj = 1 : size(sbjs,2) )
-				BlinkTransient.BlinkRT( sbjs{iSbj}, folders{iSbj}, indices{iSbj}, 'tRampOn', false, true, [], false );
+				BlinkTransient.BlinkRT( sbjs{iSbj}, folders{iSbj}, indices{iSbj}, 'tRampOn', [], true, [], false );
 				title(sbjs{iSbj});
 				set( gca, 'YLim', [0 4] );
 				if(iSbj~=1) legend off; end
@@ -6475,7 +6474,7 @@ classdef BlinkTransient < handle
 		end
 
 
-		function RT = BlinkRT( sbj, folder, indices, alignEvt, fitKernel, isPlot, tStep, isNewFigure )
+		function RT = BlinkRT_OLD20190527( sbj, folder, indices, alignEvt, fitKernel, isPlot, tStep, isNewFigure )
 			%% RT:	in ms
 
 			if( nargin() < 4 || isempty(alignEvt) ) alignEvt = 'tBlinkBeepOn'; end
@@ -6527,6 +6526,169 @@ classdef BlinkTransient < handle
 			RT(isnan(RT)) = [];
 
 
+			%% fitting the distribution
+			if(isFit)
+				switch( fitKernel )
+					case { 'gev' }
+						pdffun = @(x, param1, param2, param3) pdf( fitKernel, x, param1, param2, param3 );
+						cdffun = @(x, param1, param2, param3) cdf( fitKernel, x, param1, param2, param3 );
+
+					case { 'norm', 'normal', 'logn', 'lognormal', 'beta' }
+						iParams = [ 2, 3; 2, 3 ];
+						pdffun = @(x, param1, param2) pdf( fitKernel, x, param1, param2 );
+						cdffun = @(x, param1, param2) cdf( fitKernel, x, param1, param2 );
+				end
+				
+				if( strcmpi( alignEvt, 'tblinkbeepon' ) )
+					rt = {RT};
+				else
+					rt = { RT(RT<mean(RT)), RT(RT>mean(RT)) };
+				end
+				options = statset( 'display', 'off', 'MaxIter', 100000, 'MaxFunEvals', 200000, 'FunValCheck', 'off' );
+				
+				for( i = size(rt,2) : -1 : 1 )
+
+					%% fitdist
+					pd = fitdist( (rt{i})', fitKernel, 'options', options );
+					paramsCell{i} = num2cell(pd.Params);
+
+					if( strcmpi( fitKernel, 'gev' ) )
+						lowerbounds = [paramsCell{i}{1}-0.5, paramsCell{i}{2}/5, paramsCell{i}{3}-50]; %[ -0.05 std(rt{i})/5 0 ];
+                    	upperbounds = [paramsCell{i}{1}+0.5, paramsCell{i}{2}*5, paramsCell{i}{3}+50]; %[ 1 std(rt{i}) mean(rt{i}) ];
+						
+						%% brute force
+						% optimal.params = num2cell(lowerbounds);
+						% optimal.p1 = 0;
+						% optimal.p2 = 0;
+						% N = 100;
+						% for( iIter = 0 : (N+1)^size(lowerbounds,2)-1 )
+						% 	for( iBit = size(lowerbounds,2) : -1 : 1 )
+						% 		bitScales(iBit) = mod( floor( iIter/(N+1)^(size(lowerbounds,2)-iBit) ), N+1 );
+						% 	end
+						% 	fprintf( [ 'index: ', repmat('%4d ',1,size(lowerbounds,2)) ], bitScales );
+						% 	params = num2cell( lowerbounds + (upperbounds - lowerbounds) / N .* bitScales );
+						% 	fprintf( [ ' | params: ', repmat('%.3f ',1,size(lowerbounds,2)) ], params{:} );
+						% 	tmpRT = sort(rt{i});
+						% 	edges = unique( [ rt{i}( 1 : max([5,ceil(size(rt{i},2)/100)]) : end ), rt{i}(end) ] );
+						% 	[ ~, p1 ] = chi2gof( rt{i}, 'cdf', [ {cdffun}, params(1,:) ], 'edges', edges );
+						% 	[ ~, p2 ] = kstest( rt{i}, [ unique(rt{i})', cdffun( unique(rt{i})', params{:} ) ] );
+						% 	fprintf( ' | p1=%.3f | p2=%.3f\n', p1, p2 );
+						% 	if( optimal.p1 + optimal.p2 < p1 + p2 )
+						% 		optimal.p1 = p1;
+						% 		optimal.p2 = p2;
+						% 		optimal.params = params;
+						% 	end
+						% end
+						% paramsCell{i} = optimal.params;
+
+
+						%% curve fitting with least square root
+						edges = min(RT) - tStep/2 : tStep : max(RT) + tStep/2;
+						[fitobj, gof, output] = fit( mean( [edges(1:end-1); edges(2:end)] )', ToolKit.Hist( rt{i}, edges, false, true )' / tStep, fittype( 'gevpdf(x,param1,param2,param3)' ), 'StartPoint', [paramsCell{i}{:}] );
+						paramsCell{i} = { fitobj.param1, fitobj.param2, fitobj.param3 };
+
+					end
+
+
+					% test the fitting
+					tmpRT = sort(rt{i});
+		            edges = unique( [ tmpRT( 1 : max([5,ceil(size(tmpRT,2)/100)]) : end ), tmpRT(end) ] );
+					[ chi2_h, chi2_p(i), chi2_st ] = chi2gof( tmpRT, 'cdf', [ {cdffun}, paramsCell{i} ], 'edges', edges );
+					[ ks_h, ks_p(i), ks_st, ks_cv ] = kstest( tmpRT, [ unique(tmpRT)', cdffun( unique(tmpRT)', paramsCell{i}{:} ) ] );
+				end
+			end
+
+			
+			%% plot
+			if( isPlot )
+				if( isNewFigure )
+					name = [sbj, ': Blink'];
+					if( strcmpi( alignEvt, 'tblinkbeepon' ) ) name = [name,'RT'];
+					else name = [name, 'Aligned2', alignEvt]; end
+					set( figure, 'NumberTitle', 'off', 'name', name, 'color', 'w' );
+				end
+				ToolKit.Hist( RT, min(RT) - tStep/2 : tStep : max(RT) + tStep/2 );
+				switch alignEvt
+					case 'tBlinkBeepOn'
+						x = [0 2000];
+					case 'tPlateauOn'
+						x = [-2500 2000];
+					case 'tFpOn'
+						x = [0 4500];
+					case 'tRampOn'
+						x = [-1000 3500];
+					otherwise
+						x = [0 2000];
+				end
+				if(isFit)
+					hold on;
+					y = get( gca, 'ylim' );
+					if( strcmpi( alignEvt, 'tblinkbeepon' ) )
+						xLoc = 0.5*x(1) + 0.5*mean(x);
+					else
+						xLoc = [0.95*x(1)+0.05*mean(x), 0.95*mean(x)+0.05*x(2)];
+					end
+					for( i = 1 : size(rt,2) )
+						t = min(rt{i}) - tStep*3 : tStep : max(rt{i}) + tStep*3;
+						plot( t, pdf( fitKernel, t, paramsCell{i}{:} ) * size(rt{i},2) * tStep, 'k', 'LineWidth', 2 );
+
+						text( xLoc(i), y(2),...
+						{ 'During Fixation:';...
+						  sprintf( '\\indent Chi2\\_gof: $p=%.4f$', chi2_p(i) );...
+						  sprintf( '\\indent KS\\_Test:  $p = %.4f$', ks_p(i) );...
+						  sprintf( [ '\\indent $f(x)=\\mbox{pdf}("%s",x,%.3f', repmat(',%.3f',1,size(paramsCell{1},2)-1), ')$' ], fitKernel, paramsCell{i}{:} ) },...
+						'HorizontalAlignment', 'left', 'VerticalAlignment', 'top', 'interpreter', 'latex', 'FontSize', 20 );
+					end
+					
+					% text( , y(2),...
+					% 	{ 'During Stimulus:';...
+					% 	  sprintf( '\\indent Chi2\\_gof: $p=%.4f$', chi2_p(2) );...
+					% 	  sprintf( '\\indent KS\\_Test:  $p=%.4f$', ks_p(2) );...
+					% 	  sprintf( [ '\\indent $f(x)=\\mbox{pdf}("%s",x,%.3f', repmat(',%.3f',1,size(paramsCell{1},2)-1), ')$' ], fitKernel, paramsCell{2}{:} ) },...
+					% 	'HorizontalAlignment', 'left', 'VerticalAlignment', 'top', 'interpreter', 'latex', 'FontSize', 20 );
+				end
+				set( gca, 'XLim', x, 'box', 'off', 'LineWidth', 2, 'FontSize', 20 );
+				xlabel( sprintf( 'Time aligned to %s (ms)', alignEvt ) );
+				ylabel( 'Number of trials' );
+			end
+		end
+
+		function RT = BlinkRT( sbj, folder, indices, alignEvt, fitKernel, isPlot, tStep, isNewFigure )
+			%% RT:	in ms
+
+			if( nargin() < 4 || isempty(alignEvt) ) alignEvt = 'tBlinkBeepOn'; end
+			if( nargin() < 5 || isempty(fitKernel) ) isFit = false;
+			else isFit = true; end
+			if( nargin() < 6 ) isPlot = true; end
+			if( nargin() < 7 || isempty(tStep) ) tStep = 5; end 	% by default, 5 ms
+			if( nargin() < 8 ) isNewFigure = true; end
+
+			RT = [];
+			Data4Blinks = BlinkTransient.GetLabeledTrials4Blinks(folder,[],[],'tRampOn',0,0);%,'tPlateauOn',0);
+			if( nargin() < 3 || isempty(indices) )
+				Trials = [Data4Blinks.trials];
+			else
+				Trials = [Data4Blinks(indices).trials];
+			end
+			Trials( isnan([Trials.hasBlink]) ) = [];
+			Trials( [Trials.tBlinkBeepOn] - [Trials.tRampOn] > -600 & ~[Trials.hasBlink] | [Trials.tBlinkBeepOn] - [Trials.tRampOn] < -600 & [Trials.hasBlink] ) = [];
+			Trials = BlinkTransient.ETScreen(Trials);
+			if( isempty(Trials) ) return; end
+
+			RT = zeros(size(Trials));
+			for( iTrial = size(Trials,2) : -1 : 1 )
+				starts = [Trials(iTrial).blinks.start] / Trials(iTrial).sRate * 1000;
+				starts( starts <= Trials(iTrial).tBlinkBeepOn - Trials(iTrial).tTrialStart ) = [];
+				if( isempty(starts) )
+					RT(iTrial) = NaN;
+					continue;
+				end
+
+				RT(iTrial) = starts(1) - (Trials(iTrial).(alignEvt) - Trials(iTrial).tTrialStart);
+			end
+			% RT(RT < 0) = [];
+			RT(isnan(RT)) = [];
+			
 			%% fitting the distribution
 			if(isFit)
 				switch( fitKernel )
@@ -6870,7 +7032,7 @@ classdef BlinkTransient < handle
 		end
 
 
-		function rates = SaccadesRate( folder, alignment, smooth, window, isPlot, isNewFigure )
+		function rates = SaccadesRate_OLD20190527( folder, alignment, smooth, window, isPlot, isNewFigure )
 			%% alignment:					event to align the rates; by default, aligned to the time point of the first recorded eye position
 			%  window:						sliding window size (ms)
 			%  smooth:						'gaussian', 'square', 'raw'
@@ -7029,7 +7191,7 @@ classdef BlinkTransient < handle
 			end
 		end
 
-		function rates = SaccadesRateV2( folder, indices, alignment, smooth, window, isPlot, isNewFigure )
+		function rates = SaccadesRate( folder, indices, alignment, smooth, window, isPlot, isNewFigure )
 			%% alignment:					event to align the rates; by default, aligned to the time point of the first recorded eye position
 			%  window:						sliding window size (ms)
 			%  smooth:						'gaussian', 'square', 'raw'
@@ -7058,8 +7220,8 @@ classdef BlinkTransient < handle
 			Trials( isnan([Trials.hasBlink]) ) = [];
 			Trials( [Trials.tBlinkBeepOn] - [Trials.tRampOn] > -600 & ~[Trials.hasBlink] | [Trials.tBlinkBeepOn] - [Trials.tRampOn] < -600 & [Trials.hasBlink] ) = [];
 			Trials = BlinkTransient.ETScreen(Trials);
-
 			if( isempty(Trials) ) return; end
+
 			microsaccades = [Trials.microsaccades];
 			saccades = [Trials.saccades];
 			switch(lower(alignment))
