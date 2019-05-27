@@ -1825,11 +1825,11 @@ classdef BlinkTransient < handle
 			for( iSbj = 1 : size(sbjs,2) )
 				subplot( nRows, nCols, iSbj ); hold on;
 				yTop = 0.3;
-				fill( [0 1500 1500 0], [0 0 yTop yTop], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'c', 'FaceAlpha', 0.25, 'DisplayName', 'Ramp' );
+				h(2) = fill( [0 1500 1500 0], [0 0 yTop yTop], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'c', 'FaceAlpha', 0.25, 'DisplayName', 'Ramp' );
 				if( strcmpi( sbjs{iSbj}, 'bin' ) )
-					fill( [1500 2000 2000 1500], [0 0 yTop yTop], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'g', 'FaceAlpha', 0.25, 'DisplayName', 'Plateau' );
+					h(1) = fill( [1500 2000 2000 1500], [0 0 yTop yTop], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'g', 'FaceAlpha', 0.25, 'DisplayName', 'Plateau' );
 				else
-					fill( [1500 2500 2500 1500], [0 0 yTop yTop], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'g', 'FaceAlpha', 0.25, 'DisplayName', 'Plateau' );
+					h(1) = fill( [1500 2500 2500 1500], [0 0 yTop yTop], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'g', 'FaceAlpha', 0.25, 'DisplayName', 'Plateau' );
 				end
 				RT = BlinkTransient.BlinkRT( sbjs{iSbj}, folders{iSbj}, indices{iSbj}, 'tRampOn', [], true, 50, false );
 				title( [sbjs{iSbj}, ' | n=', num2str(size(RT,2))] );
@@ -1844,6 +1844,7 @@ classdef BlinkTransient < handle
 					set( gca, 'XTickLabel', [] );
 				end
 			end
+			legend( h([2 1]), 'location', 'NorthEast' );
 			set( axes( 'position', [0 0 1 1] ), 'visible', 'off' );
 			text( pos1(1)/3*2, 0.5, 'Proportion of trials', 'FontWeight', 'bold', 'FontSize', 22, 'rotation', 90, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle' );
 			text( 0.5, pos2(2)/3, 'Time aligned to ramp onset (s)', 'FontWeight', 'bold', 'FontSize', 22, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle' );
