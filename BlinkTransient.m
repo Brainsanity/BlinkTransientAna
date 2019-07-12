@@ -1706,7 +1706,7 @@ classdef BlinkTransient < handle
 						3:53,...	% A050
 						5:29,...	% A098
 						4:20,...	% A092
-						4:13,...	% A029
+						4:28,...	% A029
 						};
 
 			for( iSbj = 1 : size(sbjs,2) )
@@ -1768,7 +1768,7 @@ classdef BlinkTransient < handle
 						'F:\BlinkTransient\A037',...
 						'F:\BlinkTransient\A043\Extracted_1s_sf3',...
 						'F:\BlinkTransient\A025' };
-			indices = { 1:29,...	% Bin
+			folderIndices = { 1:29,...	% Bin
 						1:33,...	% A058
 						1:29,...	% A082
 						1:19,...	% A088
@@ -1776,7 +1776,7 @@ classdef BlinkTransient < handle
 						3:53,...	% A050
 						5:29,...	% A098
 						4:20,...	% A092
-						4:13,...	% A029
+						4:28,...	% A029
 						[4:36,41:45],...	% A037
 						1:19,...	% A043
 						8:32,...	% A025
@@ -1803,7 +1803,7 @@ classdef BlinkTransient < handle
 					else
 						fill( [1500 2500 2500 1500], [0 0 4 4], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'g', 'FaceAlpha', 0.25, 'DisplayName', 'Plateau' );
 					end
-					rates = BlinkTransient.SaccadesRate( folders{iSbj}, indices{iSbj}, 'RampOn', 'gaussian', 100, true, false );
+					rates = BlinkTransient.SaccadesRate( folders{iSbj}, folderIndices{iSbj}, 'RampOn', 'gaussian', 100, true, false );
 					title( [sbjs{iSbj}, ' | n=', num2str(rates.nTrials)]);
 					set( gca, 'YMinorTick', 'on' );
 					xlabel([]);
@@ -1837,7 +1837,7 @@ classdef BlinkTransient < handle
 					else
 						h(1) = fill( [1500 2500 2500 1500], [0 0 yTop yTop], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'g', 'FaceAlpha', 0.25, 'DisplayName', 'Plateau' );
 					end
-					RT = BlinkTransient.BlinkRT( sbjs{iSbj}, folders{iSbj}, indices{iSbj}, 'tRampOn', [], true, 50, false );
+					RT = BlinkTransient.BlinkRT( sbjs{iSbj}, folders{iSbj}, folderIndices{iSbj}, 'tRampOn', [], true, 50, false );
 					title( [sbjs{iSbj}, ' | n=', num2str(size(RT,2))] );
 					set( gca, 'YMinorTick', 'on', 'YLim', [0 yTop] );
 					xlabel([]);
@@ -1864,7 +1864,7 @@ classdef BlinkTransient < handle
 				set( figure, 'numbertitle', 'off', 'name', 'Pooled: BlinkDuration of Blink Trials', 'color', 'w' );
 				for( iSbj = 1 : size(sbjs,2) )
 					subplot( nRows, nCols, iSbj ); hold on;
-					[~, trials] = BlinkTransient.BlinkDuration( sbjs{iSbj}, folders{iSbj}, indices{iSbj}, [], true, 10, false );
+					[~, trials] = BlinkTransient.BlinkDuration( sbjs{iSbj}, folders{iSbj}, folderIndices{iSbj}, [], true, 10, false );
 					title( [sbjs{iSbj}, ' | n=', num2str(size(trials,2))] );
 					set( gca, 'YMinorTick', 'on', 'YLim', [0 0.3] );
 					xlabel([]);
@@ -1882,6 +1882,210 @@ classdef BlinkTransient < handle
 				h = findall(gcf,'type','axes');
 				uistack( h(2:end), 'top' );
 				set( h(1), 'layer', 'bottom' );
+			end
+
+			%% Drift proportion VS performance
+			if( bitget( flags, 4 ) )
+				set( figure, 'numbertitle', 'off', 'name', 'Drift prop VS performance', 'color', 'w' );
+				load('F:\BlinkTransient\Reports\2019.06.10\Population_spl.mat');
+				indices = [1,2,3,4,7,8,9,11,12];
+				colors = { [0.5 0.5 1], [0.5 1 1], [0.5 1 0.5], [1 0.5 1], [1 0.5 0.5], [1 1 0.5], [1 0.8 0.6], [1 0.6 0.8], [0.8 1 0.6], [0.8 0.6 1], [0.6 1 0.8], [0.6 0.8 1] };
+
+				subplot(2,2,1); hold on;
+				h = [];
+				for( iSbj = indices )
+					plot( Population.drift.nTrials.blink(iSbj) ./ Population.all.nTrials.blink(iSbj), Population.all.performance.blink(iSbj), '^', 'color', 'r', 'markersize', 10, 'linewidth', 2 );
+					plot( Population.drift.nTrials.noBlink(iSbj) ./ Population.all.nTrials.noBlink(iSbj), Population.all.performance.noBlink(iSbj), 's', 'color', 'b', 'markersize', 15, 'linewidth', 2.5 );
+					h(end+1) = plot( [Population.drift.nTrials.blink(iSbj) ./ Population.all.nTrials.blink(iSbj), Population.drift.nTrials.noBlink(iSbj) ./ Population.all.nTrials.noBlink(iSbj)], [Population.all.performance.blink(iSbj), Population.all.performance.noBlink(iSbj)], '--', 'color', colors{iSbj}, 'linewidth', 2, 'displayname', Population.sbj{iSbj} );
+				end
+				h(end+1) = plot( -10, -10, 'r^', 'markersize', 10, 'linewidth', 2, 'displayname', 'Blink' );
+				h(end+1) = plot( -10, -10, 'bs', 'markersize', 15, 'linewidth', 2.5, 'displayname', 'No Blink' );
+				legend(h);
+				set( gca, 'linewidth', 2, 'fontsize', 24, 'box', 'off', 'ylim', [0.65 1], 'xlim', [-0.05 1] );
+				xlabel('Proportion of drift only trials');
+				ylabel('Performance');
+
+				subplot(2,2,2); hold on;
+				h = [];
+				prop = (Population.drift.nTrials.blink + Population.drift.nTrials.noBlink) ./ (Population.all.nTrials.blink + Population.all.nTrials.noBlink);
+				dif = Population.all.performance.blink - Population.all.performance.noBlink;
+				prop = prop(indices);
+				dif = dif(indices);
+				for( iSbj = 1:size(prop,2) )
+					h(end+1) = plot( prop(iSbj), dif(iSbj), '^', 'color', colors{indices(iSbj)}, 'markersize', 10, 'LineWidth', 2, 'DisplayName', Population.sbj{indices(iSbj)} );
+				end
+				set( gca, 'linewidth', 2, 'fontsize', 24, 'box', 'off', 'ylim', [0 0.15], 'xlim', [-0.05 1] );
+				xlabel('Proportion of drift only trials');	% average across Blink and No Blink
+				ylabel('Diff in performance');
+
+				p = polyfit( prop([1,3:4,6:end]), dif([1,3:4,6:end]), 1);
+				residuals = dif - polyval( p, prop );
+				% [outliers, L, U, C] = isoutlier( residuals, 'mean' );		% outliers beyond 3*std
+				outliers = abs(residuals) > 2 * std(residuals);
+				h(end+1) = plot( prop(outliers), dif(outliers), 'ro', 'MarkerSize', 12, 'LineWidth', 1.5, 'DisplayName', 'Outliers' );
+
+				p = polyfit( prop(~outliers), dif(~outliers), 1 );
+				[r pval] = corrcoef( prop(~outliers), dif(~outliers) );
+                if( size(r,2) == 1 ) r(2) = r(1); end
+                if( size(pval,2) == 1) pval(2) = pval(1); end
+				plot( get(gca,'XLim'), polyval( p, get(gca,'XLim') ), 'k', 'LineWidth', 1.5 );
+				text( 0, 0.15, sprintf( 'k = %6.3f; r = %6.3f; p = %6.3f', p(1), r(2), pval(2) ), 'VerticalAlignment', 'top', 'HorizontalAlignment', 'left', 'FontSize', 20 );
+				legend(h);
+
+				
+				subplot(2,2,3); hold on;
+				h = [];
+				for( iSbj = indices )
+					h(end+1) = plot( Population.drift.nTrials.blink(iSbj) / Population.all.nTrials.blink(iSbj) - Population.drift.nTrials.noBlink(iSbj) / Population.all.nTrials.noBlink(iSbj), Population.all.performance.blink(iSbj) - Population.all.performance.noBlink(iSbj), '^', 'color', colors{iSbj}, 'markersize', 10, 'LineWidth', 2, 'DisplayName', Population.sbj{iSbj} );
+				end
+				legend(h);
+				set( gca, 'linewidth', 2, 'fontsize', 24, 'box', 'off', 'ylim', [0 0.15], 'xlim', [-0.45 0.1] );
+				xlabel('Diff in proportion of drift only trials');	% average across Blink and No Blink
+				ylabel('Diff in performance');
+
+
+				% drift characteristics VS performance (drift only trials)
+				subplot(2,2,4); hold on;
+				for( iSbj = 1 : 9 )
+					data = BlinkTransient.GetLabeledTrials4Blinks( folders{iSbj}, [], [], 'tRampOn', 0, 0 );
+					data = data(folderIndices{iSbj});
+					for( i = 1 : size(data,2) )
+						data(i).trials( [data(i).trials.tBlinkBeepOn] - [data(i).trials.tRampOn] > -600 & ~[data(i).trials.hasBlink] | [data(i).trials.tBlinkBeepOn] - [data(i).trials.tRampOn] < -600 & [data(i).trials.hasBlink] ) = [];
+					end
+					trials = BlinkTransient.ETScreen([data.trials]);
+					condsTrials{1} = trials([trials.hasBlink]);
+					condsTrials{2} = trials(~[trials.hasBlink]);
+					for( iCond = 2 : -1 : 1 )
+						for( iTrial = size(condsTrials{iCond},2) : -1 : 1 )
+							starts = (condsTrials{iCond}(iTrial).drifts.start - 1) / condsTrials{iCond}(iTrial).sRate * 1000 + condsTrials{iCond}(iTrial).tTrialStart;
+							ends = (condsTrials{iCond}(iTrial).drifts.start + condsTrials{iCond}(iTrial).drifts.duration - 2) / condsTrials{iCond}(iTrial).sRate * 1000 + condsTrials{iCond}(iTrial).tTrialStart;
+							index = ( condsTrials{iCond}(iTrial).tRampOn < starts & starts < condsTrials{iCond}(iTrial).tMaskOn ) | ( condsTrials{iCond}(iTrial).tRampOn < ends & ends < condsTrials{iCond}(iTrial).tMaskOn ) | ( starts < condsTrials{iCond}(iTrial).tRampOn & ends > condsTrials{iCond}(iTrial).tMaskOn );
+							for( iX = find(index) )
+								condsTrials{iCond}(iTrial).drifts.duration(iX) = round( ( min( ends(iX), condsTrials{iCond}(iTrial).tMaskOn ) - condsTrials{iCond}(iTrial).tTrialStart ) / 1000 * condsTrials{iCond}(iTrial).sRate ) + 2 - condsTrials{iCond}(iTrial).drifts.start(iX);
+								condsTrials{iCond}(iTrial).drifts.start(iX) = max( condsTrials{iCond}(iTrial).drifts.start(iX), round( (condsTrials{iCond}(iTrial).tRampOn - condsTrials{iCond}(iTrial).tTrialStart) / 1000 * condsTrials{iCond}(iTrial).sRate ) );
+
+							end
+							drifts{iSbj,iCond}(iTrial).start = condsTrials{iCond}(iTrial).drifts.start(index);
+							drifts{iSbj,iCond}(iTrial).duration = condsTrials{iCond}(iTrial).drifts.duration(index);
+							drifts{iSbj,iCond}(iTrial).amplitude = condsTrials{iCond}(iTrial).drifts.amplitude(index);
+							drifts{iSbj,iCond}(iTrial).angle = condsTrials{iCond}(iTrial).drifts.angle(index);
+							drifts{iSbj,iCond}(iTrial).xPos = [];
+							drifts{iSbj,iCond}(iTrial).xVel = [];
+							drifts{iSbj,iCond}(iTrial).yPos = [];
+							drifts{iSbj,iCond}(iTrial).yVel = [];
+							for( iDrift = sum(index) : -1 : 1 )
+								drifts{iSbj,iCond}(iTrial).xPos{iDrift} = condsTrials{iCond}(iTrial).x.position( (0 : drifts{iSbj,iCond}(iTrial).duration(iDrift)-1) + drifts{iSbj,iCond}(iTrial).start(iDrift) );
+								drifts{iSbj,iCond}(iTrial).xVel{iDrift} = condsTrials{iCond}(iTrial).x.velocity( (0 : drifts{iSbj,iCond}(iTrial).duration(iDrift)-1) + drifts{iSbj,iCond}(iTrial).start(iDrift) );
+								drifts{iSbj,iCond}(iTrial).yPos{iDrift} = condsTrials{iCond}(iTrial).y.position( (0 : drifts{iSbj,iCond}(iTrial).duration(iDrift)-1) + drifts{iSbj,iCond}(iTrial).start(iDrift) );
+								drifts{iSbj,iCond}(iTrial).yVel{iDrift} = condsTrials{iCond}(iTrial).y.velocity( (0 : drifts{iSbj,iCond}(iTrial).duration(iDrift)-1) + drifts{iSbj,iCond}(iTrial).start(iDrift) );
+								drifts{iSbj,iCond}(iTrial).velocity{iDrift} = condsTrials{iCond}(iTrial).velocity( (0 : drifts{iSbj,iCond}(iTrial).duration(iDrift)-1) + drifts{iSbj,iCond}(iTrial).start(iDrift) );
+
+								smoothing = 41;
+								cutseg = 50;
+								maxSpeed = 300;
+								if( size( drifts{iSbj,iCond}(iTrial).xPos{iDrift}, 2 ) < smoothing ) continue; end
+								[drifts{iSbj,iCond}(iTrial).span(iDrift), drifts{iSbj,iCond}(iTrial).mSpeed(iDrift), drifts{iSbj,iCond}(iTrial).mCurvature(iDrift), drifts{iSbj,iCond}(iTrial).varX(iDrift), drifts{iSbj,iCond}(iTrial).varY(iDrift)]...
+									= getDriftChar( drifts{iSbj,iCond}(iTrial).xPos{iDrift}, drifts{iSbj,iCond}(iTrial).yPos{iDrift}, smoothing, cutseg, maxSpeed);
+							end
+							drifts{iSbj,iCond}(iTrial).span = drifts{iSbj,iCond}(iTrial).span( ~isnan(drifts{iSbj,iCond}(iTrial).mSpeed) );
+							drifts{iSbj,iCond}(iTrial).mCurvature = drifts{iSbj,iCond}(iTrial).mCurvature( ~isnan(drifts{iSbj,iCond}(iTrial).mSpeed) );
+							drifts{iSbj,iCond}(iTrial).varX = drifts{iSbj,iCond}(iTrial).varX( ~isnan(drifts{iSbj,iCond}(iTrial).mSpeed) );
+							drifts{iSbj,iCond}(iTrial).varY = drifts{iSbj,iCond}(iTrial).varY( ~isnan(drifts{iSbj,iCond}(iTrial).mSpeed) );
+							drifts{iSbj,iCond}(iTrial).mSpeed = drifts{iSbj,iCond}(iTrial).mSpeed( ~isnan(drifts{iSbj,iCond}(iTrial).mSpeed) );
+						end
+					end
+				end
+				h = [];
+				for( iSbj = 1:9 )
+					% plot( mean([drifts{iSbj,1}.mSpeed]), Population.drift.performance.blink(iSbj), '^', 'color', 'r', 'markersize', 10, 'linewidth', 2 );
+					% plot( mean([drifts{iSbj,2}.mSpeed]), Population.drift.performance.noBlink(iSbj), 's', 'color', 'b', 'markersize', 15, 'linewidth', 2.5 );
+					% h(end+1) = plot( [ mean([drifts{iSbj,1}.mSpeed]), mean([drifts{iSbj,2}.mSpeed]) ], [ Population.drift.performance.blink(iSbj), Population.drift.performance.noBlink(iSbj) ], '--', 'color', colors{iSbj}, 'linewidth', 2, 'displayname', Population.sbj{iSbj} );
+					h(end+1) = plot( mean([drifts{iSbj,1}.mSpeed, drifts{iSbj,2}.mSpeed]), Population.drift.performance.blink(iSbj) - Population.drift.performance.noBlink(iSbj), '^', 'color', colors{iSbj}, 'LineWidth', 2, 'MarkerSize', 10, 'DisplayName', Population.sbj{iSbj} );
+				end
+				set( gca, 'linewidth', 2, 'fontsize', 24, 'box', 'off', 'ylim', get(gca, 'ylim'), 'xlim', get(gca, 'xlim') );
+				% h(end+1) = plot( -10, -10, 'r^', 'markersize', 10, 'linewidth', 2, 'displayname', 'Blink' );
+				% h(end+1) = plot( -10, -10, 'bs', 'markersize', 15, 'linewidth', 2.5, 'displayname', 'No Blink' );
+				legend(h);
+				xlabel('Drift mSpeed');
+				ylabel('Performance diff of drift only trials');
+
+				
+			end
+
+			%% drift VS m/sacs
+			if( bitget( flags, 5 ) )
+				set( figure, 'numbertitle', 'off', 'name', 'Drift VS M/Sac', 'color', 'w' );
+				load('F:\BlinkTransient\Reports\2019.06.20\Population.mat');
+				colors = { [0.5 0.5 1], [0.5 1 1], [0.5 1 0.5], [1 0.5 1], [1 0.5 0.5], [1 1 0.5], [1 0.8 0.6], [1 0.6 0.8], [0.8 1 0.6], [0.8 0.6 1], [0.6 1 0.8], [0.6 0.8 1] };
+				indices = 1 : size(Population.drift.performance.blink,2);
+
+				subplot(2,2,1); hold on;
+				h = [];
+				for( iSbj = indices )
+					plot( Population.drift.performance.blink(iSbj), Population.m_sac.performance.blink(iSbj), '^', 'color', 'r', 'markersize', 10, 'linewidth', 2 );
+					plot( Population.drift.performance.noBlink(iSbj), Population.m_sac.performance.noBlink(iSbj), 's', 'color', 'b', 'markersize', 15, 'linewidth', 2.5 );
+					h(end+1) = plot( [Population.drift.performance.blink(iSbj), Population.drift.performance.noBlink(iSbj)], [Population.m_sac.performance.blink(iSbj), Population.m_sac.performance.noBlink(iSbj)], '--', 'color', colors{iSbj}, 'linewidth', 2, 'displayname', Population.sbj{iSbj} );
+				end
+				h(end+1) = plot( -10, -10, 'r^', 'markersize', 10, 'linewidth', 2, 'displayname', 'Blink' );
+				h(end+1) = plot( -10, -10, 'bs', 'markersize', 15, 'linewidth', 2.5, 'displayname', 'No Blink' );
+				plot( [0 1], [0 1], 'k--', 'LineWidth', 1.5 );
+				legend(h);
+				set( gca, 'linewidth', 2, 'fontsize', 24, 'box', 'off', 'ylim', [0.5 1], 'xlim', [0.5 1] );
+				xlabel('Performance of drift only trials');
+				ylabel('Performance of m/sacs trials');
+
+				subplot(2,2,2); hold on;
+				h = [];
+				for( iSbj = indices )
+					h(end+1) = plot( Population.drift.performance.blink(iSbj) - Population.drift.performance.noBlink(iSbj), Population.m_sac.performance.blink(iSbj) - Population.m_sac.performance.noBlink(iSbj), '^', 'color', colors{iSbj}, 'markersize', 10, 'LineWidth', 2, 'DisplayName', Population.sbj{iSbj} );
+				end
+				set(gca,'linewidth',2,'fontsize',24,'box','off','ylim',[-0.03 0.3],'xlim',[-0.03 0.3]);
+				xlabel('Improvement of drift only trials');
+				ylabel('Improvement of M/Sac trials');
+
+				x = Population.drift.performance.blink(indices) - Population.drift.performance.noBlink(indices);
+				y = Population.m_sac.performance.blink(indices) - Population.m_sac.performance.noBlink(indices);
+				p = polyfit( x, y, 1);
+				residuals = y - polyval( p, y );
+				outliers = abs(residuals) > 2 * std(residuals);
+				h(end+1) = plot( x(outliers), y(outliers), 'ro', 'MarkerSize', 12, 'LineWidth', 1.5, 'DisplayName', 'Outliers' );
+
+				p = polyfit( x(~outliers), y(~outliers), 1 );
+				[r pval] = corrcoef( x(~outliers), y(~outliers) );
+                if( size(r,2) == 1 ) r(2) = r(1); end
+                if( size(pval,2) == 1) pval(2) = pval(1); end
+				plot( get(gca,'XLim'), polyval( p, get(gca,'XLim') ), 'k', 'LineWidth', 1.5 );
+				text( 0, 0.3, sprintf( 'k = %6.3f; r = %6.3f; p = %6.3f', p(1), r(2), pval(2) ), 'VerticalAlignment', 'top', 'HorizontalAlignment', 'left', 'FontSize', 20 );
+				legend(h);				
+
+				% only 9 subjects analyzed for drift only trials
+				subplot(2,2,3); hold on;
+				fields = {'m_sac', 'drift', 'all'};
+				for( iField = 1 : size(fields,2) )
+					m(iField,1) = mean([Population.(fields{iField}).performance.blink(indices)]);
+					sd(iField,1) = std([Population.(fields{iField}).performance.blink(indices)]);
+					bar( 3*iField-2, m(iField,1), 0.9, 'r', 'FaceColor', 'r', 'LineStyle', 'none' );
+					plot( [1 1] * (3*iField-2), m(iField,1) + [-1 1]*sd(iField,1), 'k-', 'LineWidth', 2 );
+					
+					m(iField,2) = mean([Population.(fields{iField}).performance.noBlink(indices)]);
+					sd(iField,2) = std([Population.(fields{iField}).performance.noBlink(indices)]);
+					bar( 3*iField-1, m(iField,2), 0.9, 'b', 'FaceColor', 'b', 'LineStyle', 'none' );
+					plot( [1 1] * (3*iField-1), m(iField,2) + [-1 1]*sd(iField,2), 'k-', 'LineWidth', 2 );
+
+					[~, pVal, CI] = ttest( [Population.(fields{iField}).performance.noBlink(indices)], [Population.(fields{iField}).performance.blink(indices)], 'alpha', 0.05 );
+					ToolKit.ShowSignificance( [3*iField-2, m(iField,1)+sd(iField,1)], [3*iField-1, m(iField,2)+sd(iField,2)], pVal, 0.02, true, 'FontSize', 18 );
+				end
+				conds = {'blink', 'noBlink'};
+				for( iField = [1,2] )
+					for( iCond = [1,2] )
+						[~, pVal, CI] = ttest( [Population.(fields{iField}).performance.(conds{iCond})(indices)], [Population.(fields{iField+1}).performance.(conds{iCond})(indices)], 'alpha', 0.05 );
+						ToolKit.ShowSignificance( [3*iField+iCond-3+0.1, m(iField,iCond)+sd(iField,iCond)], [3*iField+iCond-0.1, m(iField+1,iCond)+sd(iField+1,iCond)], pVal, 0.2 * iCond, true, 'FontSize', 18 );
+					end
+				end
+
+
+				set( gca, 'XLim', [-0.5 9.5], 'YLim', [0 1.5], 'XTick', (0:2)*3+1.5, 'XTickLabel', {'M/Sac', 'Drift', 'All'}, 'XTickLabelRotation', 10, 'FontSize', 24, 'LineWidth', 2 );
+				ylabel('Performance');
 			end
 
 			%%%%%% MainSequence?
@@ -1934,22 +2138,25 @@ classdef BlinkTransient < handle
 						3:53,...	% A050
 						5:29,...	% A098
 						4:20,...	% A092
-						4:13,...	% A029
+						4:28,...	% A029
 						[4:36,41:45],...	% A037
 						1:19,...	% A043
 						8:32,...	% A025
 						};
-			if( strcmpi( condition, 'all' ) )
-				nSbjs = size(sbjs,2);
-			else
+			if( strcmpi( condition, 'drift' ) )
 				nSbjs = size(sbjs,2) - 3;
+			else
+				nSbjs = size(sbjs,2);
 			end
+			% nSbjs = size(sbjs,2);
 
 			for( iSbj = nSbjs : -1 : 1 )
 				if( strcmpi( condition, 'all' ) )
 					BlinkTransient.FixLevelEffect( sbjs{iSbj}, folders{iSbj}, mat2cell( indices{iSbj}, 1, ones(size(indices{iSbj})) ), [], [], true );
-				else
+				elseif( strcmpi( condition, 'drift' ) )
 					BlinkTransient.FixLevelEffect( sbjs{iSbj}, folders{iSbj}, mat2cell( indices{iSbj}, 1, ones(size(indices{iSbj})) ), false, false, true );
+				elseif( strcmpi( condition, 'm/sac' ) )
+					BlinkTransient.FixLevelEffect( sbjs{iSbj}, folders{iSbj}, mat2cell( indices{iSbj}, 1, ones(size(indices{iSbj})) ), true, true, true, false, false );
 				end
 				set( gca, 'YGrid', 'on', 'YMinorGrid', 'on' );
 				data = BlinkTransient.GetLabeledTrials4Blinks( folders{iSbj}, [], [], 'tRampOn', 0, 0 );
@@ -1961,6 +2168,8 @@ classdef BlinkTransient < handle
 
 				if( strcmpi( condition, 'all' ) )
 					index = true(size(trials));
+				elseif( strcmpi( condition, 'm/sac' ) )
+					index = [trials.hasSac] | [trials.hasMicrosac];
 				else
 					index = ~[trials.hasSac] & ~[trials.hasMicrosac];
 				end
@@ -2003,11 +2212,12 @@ classdef BlinkTransient < handle
 			subplot(1,2,2); hold on;
 			plot( [0 1], [0 1], 'k--', 'LineWidth', 1 );
 			for( i = 1 : size(performance.blink,2) )
-				plot( performance.noBlink(i), performance.blink(i), '^', 'MarkerSize', 10, 'LineWidth', 2, 'color', colors{i} );
+				h(i) = plot( performance.noBlink(i), performance.blink(i), '^', 'MarkerSize', 10, 'LineWidth', 2, 'color', colors{i}, 'DisplayName', sbjs{i} );
 			end
 			plot( mean(performance.noBlink), mean(performance.blink), 's', 'MarkerSize', 12, 'LineWidth', 2, 'color', 'k' );
 			plot( [1 1] * mean(performance.noBlink), mean(performance.noBlink) - CI, 'k-', 'LineWidth', 2 );
 			set( gca, 'XLim', [0.5 1], 'YLim', [0.5 1], 'XTick', 0.5:0.1:1, 'YTick', 0.5:0.1:1, 'LineWidth', 2, 'FontSize', 20 );
+			set( legend(h), 'location', 'NorthEast', 'FontSize', 16 );
 			xlabel('No Blink performance');
 			ylabel('Blink performance');
 		end
@@ -2023,18 +2233,20 @@ classdef BlinkTransient < handle
 			if( nargin() < 1 ) condition = 'drift'; end
 
 			%% all data, contrast level might vary a little bit for each subject in order to achieve an average performance of about 80%
-			sbjs 	= { 'A082', 'A002', 'A050', 'A092' };
-			folders = { 'F:\BlinkTransient\0 SimulateBlinks\A082',...
-						'F:\BlinkTransient\0 SimulateBlinks\A002',...
-						'F:\BlinkTransient\0 SimulateBlinks\A050',...
+			sbjs 	= { 'A050', 'A092', 'A082', 'A002', 'A029' };
+			folders = { 'F:\BlinkTransient\0 SimulateBlinks\A050',...
 						'F:\BlinkTransient\0 SimulateBlinks\A092',...
+						'F:\BlinkTransient\0 SimulateBlinks\A082',...
+						'F:\BlinkTransient\0 SimulateBlinks\A002',...
+						'F:\BlinkTransient\0 SimulateBlinks\A029',...
 						 };
-			indices = { 3:42,...	% A082
+			indices = { 3:31,...	% A050
+						1:29,...	% A092
+						3:42,...	% A082
 						1:25,...	% A002
-						3:31,...	% A050
-						1:10,...	% A092
+						1:5,...		% A029
 						};
-			nSbjs = size(sbjs,2);
+			nSbjs = 2; %size(sbjs,2);
 			
 			for( iSbj = nSbjs : -1 : 1 )
 				if( strcmpi( condition, 'all' ) )
@@ -2083,7 +2295,7 @@ classdef BlinkTransient < handle
 			
 			subplot(1,2,1); hold on;
 			for( i = 1 : size(performance.blink,2) )
-				plot( [1 3], [ performance.noBlink(i), performance.blink(i) ], '^--', 'MarkerSize', 10, 'LineWidth', 2, 'color', colors{i} );
+				plot( [1 3], [ performance.noBlink(i), performance.blink(i) ], '^--', 'MarkerSize', 10, 'LineWidth', 2, 'color', colors{i}, 'DisplayName', sbjs{i} );
 			end
 			plot( [1 3], [ mean(performance.noBlink), mean(performance.blink) ], 's-', 'MarkerSize', 12, 'LineWidth', 2, 'color', 'k' );
 			plot( [1 1 NaN 3 3], [ [-1 1] * std(performance.noBlink) + mean(performance.noBlink), NaN, [-1 1] * std(performance.blink) + mean(performance.blink) ], '-', 'LineWidth', 2, 'color', 'k' );
@@ -2094,11 +2306,12 @@ classdef BlinkTransient < handle
 			subplot(1,2,2); hold on;
 			plot( [0 1], [0 1], 'k--', 'LineWidth', 1 );
 			for( i = 1 : size(performance.blink,2) )
-				plot( performance.noBlink(i), performance.blink(i), '^', 'MarkerSize', 10, 'LineWidth', 2, 'color', colors{i} );
+				h(i) = plot( performance.noBlink(i), performance.blink(i), '^', 'MarkerSize', 10, 'LineWidth', 2, 'color', colors{i}, 'DisplayName', sbjs{i} );
 			end
 			plot( mean(performance.noBlink), mean(performance.blink), 's', 'MarkerSize', 12, 'LineWidth', 2, 'color', 'k' );
 			plot( [1 1] * mean(performance.noBlink), mean(performance.noBlink) - CI, 'k-', 'LineWidth', 2 );
 			set( gca, 'XLim', [0.5 1], 'YLim', [0.5 1], 'XTick', 0.5:0.1:1, 'YTick', 0.5:0.1:1, 'LineWidth', 2, 'FontSize', 20 );
+			set( legend(h), 'location', 'NorthEast', 'FontSize', 16 );
 			xlabel('No Blink performance');
 			ylabel('Blink performance');
 		end
@@ -2257,6 +2470,7 @@ classdef BlinkTransient < handle
 			    		thresh = 0;%60;%0.2;
 			    		% LN_FRs.Blink(iTrial,:) = K ./ ( 1 + exp( -g * (L_FRs.Blink(iTrial,:) - thresh) ) );
 			    		LN_FRs.Blink(iTrial,:) = max( L_FRs.Blink(iTrial,:) + base, 0 );
+			    		LN_FRs.Blink( iTrial, LN_FRs.Blink(iTrial,:) > 300 ) = 300;
 
 					end
 					L_FRs.NoBlink( isnan(L_FRs.NoBlink(:,1)), : ) = [];
@@ -4532,9 +4746,9 @@ classdef BlinkTransient < handle
 			fprintf('%s\n', folder);
 			if( size(folder,2) > 10 && strcmpi( folder(end-10:end), 'calibration' ) ) return; end
 			
-			if( 0&& exist( [folder,'/Trials.mat'], 'file' ) == 2 )%&& isempty(strfind(folder,'DDPI')) )
+			if( exist( [folder,'/Trials.mat'], 'file' ) == 2 )%&& isempty(strfind(folder,'DDPI')) )
 				delete( [folder,'/Trials.mat'] );
-				% return;
+				return;
 				load( [folder, '/Trials.mat'] );
 				if( ~isfield( Trials, 'sRate' ) )
 					[Trials.sRate] = deal(sRate);
@@ -4594,7 +4808,7 @@ classdef BlinkTransient < handle
 					trial.notracks.start( trial.notracks.duration / sRate * 1000 < 5 ) = [];
 					trial.notracks.duration( trial.notracks.duration / sRate * 1000 < 5 ) = [];
 					trial = findSaccades( trial, 'minvel', 180, 'minsa', 30 );	% min arc
-					trial = findMicrosaccades( trial, 'minvel', 180, 'minmsa', 3, 'maxmsa', 30 );	% min arc
+					trial = findMicrosaccades( trial, 'minvel', 300, 'minmsa', 3, 'maxmsa', 30 );	% min arc
 			  		trial = findDrifts(trial);
 
 			    	trial.evntRenderTimes = data.stream00{iTrial};
@@ -5170,17 +5384,19 @@ classdef BlinkTransient < handle
 		end
 
 
-		function FixLevelEffect( sbj, folder, groups, hasMicrosac, hasSac, isNewFigure, reverse2Tones )
+		function FixLevelEffect( sbj, folder, groups, hasMicrosac, hasSac, isNewFigure, reverse2Tones, isAND )
 			%% groups:					cell array, each element defines the indices of one data group
 			%  hasMicrosac:				whether trials contain microsaccades (<30 arc mins); false by default; empty or NaN mean don't care
 			%  hasSac:					whether trials contain saccades (>30 arc mins); false by default; empty or NaN mean don't care
 			%  reverse2Tones:			assign true for the paradigm where lower tone signaling later report and higher tone signaling immediate report
+			%  isAND:					whether apply AND between hasMicrosac and hasSac, if false then apply OR between them; true by default
 
 
 			if( nargin() < 4 ) hasMicrosac = false; end
 			if( nargin() < 5 ) hasSac = false; end
 			if( nargin() < 6 || isempty(isNewFigure) ) isNewFigure = true; end
 			if( nargin() < 7 || isempty(reverse2Tones) ) reverse2Tones = false; end
+			if( nargin() < 8 || isempty(isAND) ) isAND = true; end
 
 			if( folder(end) == '/' || folder(end) == '\' ) folder(end) = []; end
 
@@ -5238,13 +5454,28 @@ classdef BlinkTransient < handle
 				tmpTrials = [Data4Blinks(groups{iGroup}).trials];
 				data(iGroup).trialsWithBlink = tmpTrials( [tmpTrials.hasBlink] );
 				data(iGroup).trialsWithoutBlink = tmpTrials( ~[tmpTrials.hasBlink] );
-				if( ~isempty(hasMicrosac) && ~isnan(hasMicrosac) )
-					data(iGroup).trialsWithBlink = data(iGroup).trialsWithBlink( [data(iGroup).trialsWithBlink.hasMicrosac] == hasMicrosac );
-					data(iGroup).trialsWithoutBlink = data(iGroup).trialsWithoutBlink( [data(iGroup).trialsWithoutBlink.hasMicrosac] == hasMicrosac );
-				end
-				if( ~isempty(hasSac) && ~isnan(hasSac) )
-					data(iGroup).trialsWithBlink = data(iGroup).trialsWithBlink( [data(iGroup).trialsWithBlink.hasSac] == hasSac );
-					data(iGroup).trialsWithoutBlink = data(iGroup).trialsWithoutBlink( [data(iGroup).trialsWithoutBlink.hasSac] == hasSac );
+				if( isAND )
+					if( ~isempty(hasMicrosac) && ~isnan(hasMicrosac) )
+						data(iGroup).trialsWithBlink = data(iGroup).trialsWithBlink( [data(iGroup).trialsWithBlink.hasMicrosac] == hasMicrosac );
+						data(iGroup).trialsWithoutBlink = data(iGroup).trialsWithoutBlink( [data(iGroup).trialsWithoutBlink.hasMicrosac] == hasMicrosac );
+					end
+					if( ~isempty(hasSac) && ~isnan(hasSac) )
+						data(iGroup).trialsWithBlink = data(iGroup).trialsWithBlink( [data(iGroup).trialsWithBlink.hasSac] == hasSac );
+						data(iGroup).trialsWithoutBlink = data(iGroup).trialsWithoutBlink( [data(iGroup).trialsWithoutBlink.hasSac] == hasSac );
+					end
+				else
+					index1 = false(size(data(iGroup).trialsWithBlink));
+					index2 = false(size(data(iGroup).trialsWithoutBlink));
+					if( ~isempty(hasMicrosac) && ~isnan(hasMicrosac) )
+						index1 = index1 | ( [data(iGroup).trialsWithBlink.hasMicrosac] == hasMicrosac );
+						index2 = index2 | ( [data(iGroup).trialsWithoutBlink.hasMicrosac] == hasMicrosac );
+					end
+					if( ~isempty(hasSac) && ~isnan(hasSac) )
+						index1 = index1 | ( [data(iGroup).trialsWithBlink.hasSac] == hasSac );
+						index2 = index2 | ( [data(iGroup).trialsWithoutBlink.hasSac] == hasSac );
+					end
+					data(iGroup).trialsWithBlink = data(iGroup).trialsWithBlink(index1);
+					data(iGroup).trialsWithoutBlink = data(iGroup).trialsWithoutBlink(index2);
 				end
 
 				iii = true(1,size(data(iGroup).trialsWithBlink,2));
@@ -7064,7 +7295,7 @@ classdef BlinkTransient < handle
 				data = data / sum(data);
 				bar( (edges(1:end-1) + edges(2:end)) / 2, data, 0.9, 'FaceColor', [0.4 0.4 0.4], 'LineStyle', 'none', 'FaceAlpha', 1 ); hold on;
 				med = median(durations);
-				plot( [1 1]*med, [0 max(data)*1.5], 'k--', 'LineWidth', 2 );
+				plot( [1 1]*med, [0 0.3], 'k--', 'LineWidth', 2 );
 				text( med, 0.29, sprintf( ' %.2fms', med ), 'HorizontalAlignment', 'left', 'VerticalAlignment', 'top', 'FontSize', 18 );
 				set( gca, 'XLim', [0 410], 'YLim', [0 0.3], 'LineWidth', 1, 'box', 'off', 'FontSize', 20 );
 

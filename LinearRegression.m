@@ -16,7 +16,7 @@ function [t p b R Outliers] = LinearRegression(Xp,Yp,RemoveOutliers,Graph)
 % from - "statistical methods"  by Snedecor & Cochran. Sixth Edition.
 % Chapter 6 pg. 153
 
-t= 0; b= 0; p=0; R = 0; Outliers = []; Graph = 1;
+% t= 0; b= 0; p=0; R = 0; Outliers = []; Graph = 1;
 
 % Check input
 if length(Xp)~=length(Yp)
