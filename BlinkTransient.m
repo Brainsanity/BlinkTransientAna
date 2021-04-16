@@ -1579,16 +1579,16 @@ classdef BlinkTransient < handle
 				fclose(f);
 
 				subfolders = ToolKit.ListFolders(folders{iSbj});
-				index =  false( size(subfolders,1), 1 ) ;
-				for( iFolder = 1 : size(subfolders,1) )
-					if( strcmp( subfolders( iFolder, find( subfolders(iFolder,:) == '/' | subfolders(iFolder,:) == '\', 1, 'last' ) + (1:3) ), 'X. ' ) ) index(iFolder) = 1; end
+				index =  false( 1, size(subfolders,2) ) ;
+				for( iFolder = 1 : size(subfolders,2) )
+					if( strcmp( subfolders{iFolder}( find( subfolders{iFolder} == '/' | subfolders{iFolder} == '\', 1, 'last' ) + (1:3) ), 'X. ' ) ) index(iFolder) = 1; end
 				end
-				subfolders(index,:) = [];
+				subfolders(index) = [];
 
-				for( iFolder = 1 : size(subfolders,1) )
+				for( iFolder = 1 : size(subfolders,2) )
 					if( all( iFolder ~= indices{iSbj} ) ) continue; end
 					clear Trials;
-					load( [ ToolKit.RMEndSpaces(subfolders(iFolder,:)), '/Trials.mat' ], 'Trials' );
+					load( [ subfolders{iFolder}, '/Trials.mat' ], 'Trials' );
 					if( strcmpi( sbjs{iSbj}, 'bin' ) )
 						plateau = 500;
 					else
@@ -1596,7 +1596,7 @@ classdef BlinkTransient < handle
 					end
 					win = 50;
 					Trials = Trials( abs( [Trials.tMaskOn] - [Trials.tPlateauOn] - plateau ) < win );
-					trialsFolder = [ targetFolder, ToolKit.RMEndSpaces( subfolders( iFolder, find( subfolders(iFolder,:) == '/' | subfolders(iFolder,:) == '\', 1, 'last' ) + 1 : end ) ) ];
+					trialsFolder = [ targetFolder, subfolders{iFolder}( find( subfolders{iFolder} == '/' | subfolders{iFolder} == '\', 1, 'last' ) + 1 : end ) ];
 					if( exist( trialsFolder, 'dir' ) ~= 7 )
 						mkdir( trialsFolder );
 					end
@@ -1674,30 +1674,19 @@ classdef BlinkTransient < handle
 
 
 		function StoreBlinkSamples()
-			sbjs 	= { 'Bin',	'A058',	'A082',	'A088', 'A002', 'A050' };
-			folders = { 'F:\BlinkTransient\Bin\Extracted_0.5s_sf3',...	% 0.5s
-						'F:\BlinkTransient\A058\Extracted_1s_sf3',...
-						'F:\BlinkTransient\A082\2 FixedLevels\Extracted_1s_sf3',...
-						'F:\BlinkTransient\A088\Extracted_1s_sf3',...
-						'F:\BlinkTransient\A002',...
-						'F:\BlinkTransient\A050' };
-			indices = { 1:29,...
-						1:33,...
-						1:29,...
-						1:19,...
-						4:57,...
-						3:53 };
-
-			sbjs 	= { 'Bin',	'A058',	'A082',	'A088', 'A002', 'A050', 'A098', 'A092', 'A029' };
-			folders = { 'F:\BlinkTransient\Bin\Extracted_0.5s_sf3',...	% 0.5s
-						'F:\BlinkTransient\A058\Extracted_1s_sf3',...
-						'F:\BlinkTransient\A082\2 FixedLevels\Extracted_1s_sf3',...
-						'F:\BlinkTransient\A088\Extracted_1s_sf3',...
-						'F:\BlinkTransient\A002',...
-						'F:\BlinkTransient\A050',...
-						'F:\BlinkTransient\A098',...
-						'F:\BlinkTransient\A092',...
-						'F:\BlinkTransient\A029' };
+			sbjs 	= { 'Bin',	'A058',	'A082',	'A088', 'A002', 'A050', 'A098', 'A092', 'A029', 'A049', 'A075', 'A056' };
+			folders = { 'F:\BlinkTransient\0 Main\Bin\Extracted_0.5s_sf3',...	% 0.5s
+						'F:\BlinkTransient\0 Main\A058\Extracted_1s_sf3',...
+						'F:\BlinkTransient\0 Main\A082\2 FixedLevels\Extracted_1s_sf3',...
+						'F:\BlinkTransient\0 Main\A088\Extracted_1s_sf3',...
+						'F:\BlinkTransient\0 Main\A002',...
+						'F:\BlinkTransient\0 Main\A050',...
+						'F:\BlinkTransient\0 Main\A098',...
+						'F:\BlinkTransient\0 Main\A092',...
+						'F:\BlinkTransient\0 Main\A029',...
+						'F:\BlinkTransient\0 Main\A049',...
+						'F:\BlinkTransient\2 BlinkDist\A075',...
+						'F:\BlinkTransient\2 BlinkDist\A056' };
 			indices = { 1:29,...	% Bin
 						1:33,...	% A058
 						1:29,...	% A082
@@ -1707,29 +1696,69 @@ classdef BlinkTransient < handle
 						5:29,...	% A098
 						4:20,...	% A092
 						4:28,...	% A029
+						5:60,...	% A049
+						1:4,...		% A075
+						1:3,...		% A056
 						};
 
 			for( iSbj = 1 : size(sbjs,2) )
 				fprintf( 'Processing data for %s...\n', sbjs{iSbj} );
-				data = BlinkTransient.GetLabeledTrials4Blinks( folders{iSbj}, [], [], 'tRampOn', 0, 0 );
-				data = data(indices{iSbj});
-				for( i = 1 : size(data,2) )
-					data(i).trials( [data(i).trials.tBlinkBeepOn] - [data(i).trials.tRampOn] > -600 & ~[data(i).trials.hasBlink] | [data(i).trials.tBlinkBeepOn] - [data(i).trials.tRampOn] < -600 & [data(i).trials.hasBlink] ) = [];
-				end
-				trials = [data.trials];
-				trials = trials( ~[trials.hasMicrosac] & ~[trials.hasSac] );
-				sRate = trials(1).sRate;
-				bTrials = trials( [trials.hasBlink] );		% blink trials
-				index = false(size(bTrials));
-				for( iTrial = 1 : size(bTrials,2) )
-					blinks = bTrials(iTrial).blinks;
-					iBlink = find( (blinks.start-1) / bTrials(iTrial).sRate * 1000 > bTrials(iTrial).tRampOn - bTrials(iTrial).tTrialStart, 1, 'first' );
-					if( ( blinks.start(iBlink) -1 ) / bTrials(iTrial).sRate * 1000 > bTrials(iTrial).tPlateauOn - bTrials(iTrial).tTrialStart ||...
-						  blinks.duration(iBlink) / bTrials(iTrial).sRate * 1000 > 350 )
-						index(iTrial) = true;
+				if( iSbj <= 10 )	% data from main experiment
+					continue;
+					data = BlinkTransient.GetLabeledTrials4Blinks( folders{iSbj}, [], [], 'tRampOn', 0, 0 );
+					data = data(indices{iSbj});
+					for( i = 1 : size(data,2) )
+						data(i).trials( [data(i).trials.tBlinkBeepOn] - [data(i).trials.tRampOn] > -600 & ~[data(i).trials.hasBlink] | [data(i).trials.tBlinkBeepOn] - [data(i).trials.tRampOn] < -600 & [data(i).trials.hasBlink] ) = [];
 					end
+					trials = [data.trials];
+					trials = trials( ~[trials.hasMicrosac] & ~[trials.hasSac] );
+					sRate = trials(1).sRate;
+					bTrials = trials( [trials.hasBlink] );		% blink trials
+					index = false(size(bTrials));
+					for( iTrial = 1 : size(bTrials,2) )
+						blinks = bTrials(iTrial).blinks;
+						iBlink = find( (blinks.start-1) / bTrials(iTrial).sRate * 1000 > bTrials(iTrial).tRampOn - bTrials(iTrial).tTrialStart, 1, 'first' );
+						if( ( blinks.start(iBlink) -1 ) / bTrials(iTrial).sRate * 1000 > bTrials(iTrial).tPlateauOn - bTrials(iTrial).tTrialStart ||...
+							  blinks.duration(iBlink) / bTrials(iTrial).sRate * 1000 > 350 )
+							index(iTrial) = true;
+						end
+					end
+					bTrials(index) = [];
+				else 		% data from ExpBlinkDist
+					if( iSbj ~= 12 ) continue; end
+					subfolders = ToolKit.ListFolders(folders{iSbj});
+					index =  false( 1, size(subfolders,2) ) ;
+					for( iFolder = 1 : size(subfolders,2) )
+						if( strcmp( subfolders{iFolder}( find( subfolders{iFolder} == '/' | subfolders{iFolder} == '\', 1, 'last' ) + (1:3) ), 'X. ' ) ) index(iFolder) = 1; end
+					end
+					subfolders(index) = [];
+
+					bTrials = [];
+					for( iFolder = 1 : size(subfolders,2) )
+						load( [ subfolders{iFolder}, '/Trials.mat' ], 'Trials' );
+						bTrials = [bTrials, Trials( [Trials.trialType] == 'c' )];
+					end
+					tRampOn = num2cell( [bTrials.tBlinkBeepOn] - (1500-900) );
+					[bTrials.tRampOn] = tRampOn{:};
+
+					index = false(size(bTrials));
+					for( iTrial = 1 : size(bTrials,2) )
+						if( bTrials(iTrial).blinks.duration(1) / bTrials(iTrial).sRate * 1000 > 350 )
+							index(iTrial) = true;
+						end
+					end
+					bTrials(index) = [];
+					
+					%% trials with no micro/sac before blink
+					% index = false(size(bTrials));
+					% for( iTrial = 1 : size(bTrials,2) )
+					% 	if( isempty( [bTrials(iTrial).saccades.start, bTrials(iTrial).microsaccades.start] ) || all( bTrials(iTrial).blinks.start(1) < [bTrials(iTrial).saccades.start, bTrials(iTrial).microsaccades.start] ) )
+					% 		index(iTrial) = true;
+					% 	end
+					% end
+					% bTrials = bTrials(~index);
 				end
-				bTrials(index) = [];
+				
 				% nbTrials = trials( ~[trials.hasBlink] );	% no blink trials
 				[ tTriggers, tLid, tEye, x, y ] = BlinkTransient.BlinkParams(bTrials);
 
@@ -1753,49 +1782,60 @@ classdef BlinkTransient < handle
 		end
 
 
-		function Supplementals20190527( flags )
+		function varargout = Supplementals20190527( flags, condition )
 			if( nargin() < 1 || isempty(flags) ) flags = 2^8-1; end
-			sbjs 	= { 'Bin',	'A058',	'A082',	'A088', 'A002', 'A050', 'A098', 'A092', 'A029', 'A037', 'A043', 'A025' };
-			folders = { 'F:\BlinkTransient\Bin\Extracted_0.5s_sf3',...	% 0.5s
-						'F:\BlinkTransient\A058\Extracted_1s_sf3',...
-						'F:\BlinkTransient\A082\2 FixedLevels\Extracted_1s_sf3',...
-						'F:\BlinkTransient\A088\Extracted_1s_sf3',...
-						'F:\BlinkTransient\A002',...
-						'F:\BlinkTransient\A050',...
-						'F:\BlinkTransient\A098',...
-						'F:\BlinkTransient\A092',...
-						'F:\BlinkTransient\A029',...
-						'F:\BlinkTransient\A037',...
-						'F:\BlinkTransient\A043\Extracted_1s_sf3',...
-						'F:\BlinkTransient\A025' };
-			folderIndices = { 1:29,...	% Bin
-						1:33,...	% A058
-						1:29,...	% A082
-						1:19,...	% A088
-						4:57,...	% A002
-						3:53,...	% A050
-						5:29,...	% A098
-						4:20,...	% A092
-						4:28,...	% A029
-						[4:36,41:45],...	% A037
-						1:19,...	% A043
-						8:32,...	% A025
-						};
+			if( nargin() < 2 ) condition = 'drift'; end
 
-			n = size(sbjs,2);
-			nRows = floor( sqrt( size(sbjs,2) ) );
-			nCols = ceil( size(sbjs,2) / nRows );
+			sbjs 	= { 'Bin',	'A058',	'A082',	'A002', 'A050', 'A092', 'A029', 'A049', 'A001', 'A098', 'A088', 'A037', 'A043', 'A025' };
+			folders = { 'F:\BlinkTransient\0 Main\Bin\Extracted_0.5s_sf3',...	% 0.5s
+						'F:\BlinkTransient\0 Main\A058\Extracted_1s_sf3',...
+						'F:\BlinkTransient\0 Main\A082\2 FixedLevels\Extracted_1s_sf3',...
+						'F:\BlinkTransient\0 Main\A002',...
+						'F:\BlinkTransient\0 Main\A050',...
+						'F:\BlinkTransient\0 Main\A092',...
+						'F:\BlinkTransient\0 Main\A029',...
+						'F:\BlinkTransient\0 Main\A049',...
+						'F:\BlinkTransient\0 Main\A001',...
+						'F:\BlinkTransient\0 Main\A098',...
+						'F:\BlinkTransient\0 Main\A088\Extracted_1s_sf3',...
+						'F:\BlinkTransient\0 Main\A037',...
+						'F:\BlinkTransient\0 Main\A043\Extracted_1s_sf3',...
+						'F:\BlinkTransient\0 Main\A025' };
+			folderIndices = { 1:29,...			% Bin
+							  1:33,...			% A058
+							  1:29,...			% A082
+							  4:57,...			% A002
+							  3:53,...			% A050
+							  4:20,...			% A092
+							  4:28,...			% A029
+							  5:60,...			% A049
+							  5:50,...			% A001
+							  5:29,...			% A098
+							  1:19,...			% A088
+							  [4:36,41:45],...	% A037
+							  1:19,...			% A043
+							  8:32,...			% A025
+							  };
+
+			if( strcmpi( condition, 'drift' ) )
+				nSbjs = size(sbjs,2) - 5;
+			else
+				nSbjs = size(sbjs,2);
+			end
+
+			nRows = floor( sqrt( nSbjs ) );
+			nCols = ceil( nSbjs / nRows );
 			figure;
 			subplot( nRows, nCols, 1 );
 			pos1 = get( gca, 'position' );
-			subplot( nRows, nCols, size(sbjs,2) );
+			subplot( nRows, nCols, nSbjs );
 			pos2 = get( gca, 'position' );
 			close(gcf);
 
 			%% SaccadesRate
 			if( bitget(flags,1) )
 				set( figure, 'numbertitle', 'off', 'name', 'Pooled: SaccadesRate aligned to RampOn', 'color', 'w' );
-				for( iSbj = 1 : size(sbjs,2) )
+				for( iSbj = 1 : nSbjs )
 					subplot( nRows, nCols, iSbj ); hold on;
 					fill( [0 1500 1500 0], [0 0 4 4], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'c', 'FaceAlpha', 0.25, 'DisplayName', 'Ramp' );
 					if( strcmpi( sbjs{iSbj}, 'bin' ) )
@@ -1809,7 +1849,7 @@ classdef BlinkTransient < handle
 					xlabel([]);
 					ylabel([]);
 					set( gca, 'XLim', [-1000 4000], 'YLim', [0 4] );
-					if( iSbj ~= size(sbjs,2) ) legend off; end
+					if( iSbj ~= nSbjs ) legend off; end
 					if( mod( iSbj-1, nCols ) )
 						set( gca, 'YTickLabel', [] );
 					end
@@ -1825,10 +1865,35 @@ classdef BlinkTransient < handle
 				set( h(1), 'layer', 'bottom' );
 			end
 
+
+
+			% %% for control experiment
+			% sbjs 	= { 'A050', 'A092', 'A049', 'A075', 'A082', 'A056', 'A002' };
+			% folders = { 'F:\BlinkTransient\1 ControlV1\A050',...
+			% 			'F:\BlinkTransient\3 ControlV2\A092',...
+			% 			'F:\BlinkTransient\1 ControlV1\A049',...
+			% 			'F:\BlinkTransient\1 ControlV1\A075',...
+			% 			'F:\BlinkTransient\1 ControlV1\A082',...
+			% 			'F:\BlinkTransient\1 ControlV1\A056',...
+			% 			'F:\BlinkTransient\1 ControlV1\A002',...
+			% 			 };
+			% folderIndices = { 3:31,...	% A050
+			% 			1:29,...	% A092
+			% 			1:68,...	% A049
+			% 			3:25,...	% A075
+			% 			3:31,...% 3:42,...	% A082
+			% 			2:44,...	% A056
+			% 			1:25,...	% A002
+			% 			};
+			% nSbjs = size(sbjs,2) - 1;		% A002 has too few drift only trials
+			% nRows = floor( sqrt(nSbjs) );
+			% nCols = ceil( nSbjs / nRows );
+			
 			%% BlinkRT
 			if( bitget( flags, 2 ) )
 				set( figure, 'numbertitle', 'off', 'name', 'Pooled: BlinkRT aligned to RampOn', 'color', 'w' );
-				for( iSbj = 1 : size(sbjs,2) )
+				populationRT = cell(1,nSbjs);
+				for( iSbj = 1 : nSbjs )
 					subplot( nRows, nCols, iSbj ); hold on;
 					yTop = 0.3;
 					h(2) = fill( [0 1500 1500 0], [0 0 yTop yTop], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'c', 'FaceAlpha', 0.25, 'DisplayName', 'Ramp' );
@@ -1838,11 +1903,12 @@ classdef BlinkTransient < handle
 						h(1) = fill( [1500 2500 2500 1500], [0 0 yTop yTop], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'g', 'FaceAlpha', 0.25, 'DisplayName', 'Plateau' );
 					end
 					RT = BlinkTransient.BlinkRT( sbjs{iSbj}, folders{iSbj}, folderIndices{iSbj}, 'tRampOn', [], true, 50, false );
+					populationRT{iSbj} = RT;
 					title( [sbjs{iSbj}, ' | n=', num2str(size(RT,2))] );
 					set( gca, 'YMinorTick', 'on', 'YLim', [0 yTop] );
 					xlabel([]);
 					ylabel([]);
-					if( iSbj ~= size(sbjs,2) ) legend off; end
+					if( iSbj ~= nSbjs ) legend off; end
 					if( mod( iSbj-1, nCols ) )
 						set( gca, 'YTickLabel', [] );
 					end
@@ -1857,14 +1923,52 @@ classdef BlinkTransient < handle
 				h = findall(gcf,'type','axes');
 				uistack( h(2:end), 'top' );
 				set( h(1), 'layer', 'bottom' );
+
+				figure( 'NumberTitle', 'off', 'name', 'Population: BlinkRT aligned to RampOn', 'color', 'w' ); hold on;
+				tStep = 50;% 34.3742;
+				edges = -800:tStep:1500;
+				centers = (edges(1:end-1) + edges(2:end)) / 2;
+				data = [];
+				% data = ToolKit.Hist( populationRT, min(populationRT) - tStep/2 : tStep : max(populationRT) + tStep/2, true, true );
+				for( iSbj = nSbjs : -1 : 1 )
+					data(iSbj,:) = ToolKit.Hist( populationRT{iSbj}, edges, false, false );
+					data(iSbj, data(iSbj,:) < 0) = data(iSbj, data(iSbj,:) < 0) / sum( data(iSbj, data(iSbj,:) < 0) );
+					data(iSbj, data(iSbj,:) > 0) = data(iSbj, data(iSbj,:) > 0) / sum( data(iSbj, data(iSbj,:) > 0) );
+				end
+				data = data / (tStep/1000);
+				m = mean(data,1);
+				sd = std(data,[],1);
+				sem = sd / sqrt(nSbjs);
+				idx = find(m>0);
+				bar( centers, m, 0.9 );
+				set( findobj( gca, 'type', 'bar' ), 'LineStyle', 'none', 'FaceAlpha', 1, 'FaceColor', [0.5 0.5 0.5] );
+				plot( reshape( [1;1;NaN] * centers(idx), 1, [] ), reshape( m(idx) + [-1;1;NaN] * sem(idx), 1, [] ), 'k-' );
+				yTop = max(m+sem) * 1.1;
+				h(2) = fill( [0 1500 1500 0], [0 0 yTop yTop], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'c', 'FaceAlpha', 0.25, 'DisplayName', 'Ramp' );
+				h(1) = fill( [1500 2500 2500 1500], [0 0 yTop yTop], [0 0 0], 'LineStyle', 'none', 'FaceColor', 'g', 'FaceAlpha', 0.25, 'DisplayName', 'Plateau' );
+				legend( h([2 1]), 'location', 'NorthEast' );
+				set( gca, 'XLim', [-1000 3000], 'YLim', [0, max(m+sem) * 1.1 ], 'box', 'off', 'LineWidth', 2, 'FontSize', 20 );
+				xlabel( 'Time aligned to ramp onset (ms)' );
+				ylabel( 'Probability density' );
+
+				varargout{2} = populationRT;
 			end
 
 			%% BlinkDuration
 			if( bitget( flags, 3 ) )
 				set( figure, 'numbertitle', 'off', 'name', 'Pooled: BlinkDuration of Blink Trials', 'color', 'w' );
-				for( iSbj = 1 : size(sbjs,2) )
+				mDurs = zeros( 1, nSbjs );		% mean blink durations for individual subjects
+				nTrials.short = zeros( 1, nSbjs );		% number of short blink trials for individual subjects
+				nTrials.long = zeros( 1, nSbjs );		% number of long blink trials for individual subjectsjects
+				perform.short = zeros( 1, nSbjs );		% performance of short blink trials for individual su
+				perform.long = zeros( 1, nSbjs );		% performance of long blink trials for individual subbjects
+				mDurations.short = zeros( 1, nSbjs );	% mean duration of short blinks
+				mDurations.long = zeros( 1, nSbjs );		% mean duration of long blinks
+				populationDur = cell(1,nSbjs);
+				for( iSbj = 1 : nSbjs )
 					subplot( nRows, nCols, iSbj ); hold on;
-					[~, trials] = BlinkTransient.BlinkDuration( sbjs{iSbj}, folders{iSbj}, folderIndices{iSbj}, [], true, 10, false );
+					[durations, trials] = BlinkTransient.BlinkDuration( sbjs{iSbj}, folders{iSbj}, folderIndices{iSbj}, [], true, 10, false );
+					populationDur{iSbj} = durations .* ([trials.hasBlink]*2 - 1);
 					title( [sbjs{iSbj}, ' | n=', num2str(size(trials,2))] );
 					set( gca, 'YMinorTick', 'on', 'YLim', [0 0.3] );
 					xlabel([]);
@@ -1875,6 +1979,16 @@ classdef BlinkTransient < handle
 					if( (iSbj-1) / nCols < nRows-1 )
 						set( gca, 'XTickLabel', [] );
 					end
+
+					mDurs(iSbj) = mean(durations);
+					[~, index] = sort(durations);
+					n = round( size(index,2) / 2 );
+					nTrials.short(iSbj) = n;
+					nTrials.long(iSbj) = size(index,2) - n;
+					perform.short(iSbj) = sum( [trials(index(1:n)).trialType] == 'c' ) / nTrials.short(iSbj);
+					perform.long(iSbj) = sum( [trials(index(n+1:end)).trialType] == 'c' ) / nTrials.long(iSbj);
+					mDurations.short(iSbj) = mean( durations(index(1:n)) );
+					mDurations.long(iSbj) = mean( durations(index(n+1:end)) );
 				end
 				set( axes( 'position', [0 0 1 1] ), 'visible', 'off' );
 				text( pos1(1)/3*2, 0.5, 'Proportion of trials', 'FontWeight', 'bold', 'FontSize', 22, 'rotation', 90, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle' );
@@ -1882,6 +1996,71 @@ classdef BlinkTransient < handle
 				h = findall(gcf,'type','axes');
 				uistack( h(2:end), 'top' );
 				set( h(1), 'layer', 'bottom' );
+
+				figure( 'NumberTitle', 'off', 'name', 'Population: BlinkDuration of Blink Trials', 'color', 'w' ); hold on;
+				tStep = 1;%10;
+				edges = 0:tStep:500;
+				centers = (edges(1:end-1) + edges(2:end)) / 2;
+				data = [];
+				% data = ToolKit.Hist( populationDur, min(populationDur) - tStep/2 : tStep : max(populationDur) + tStep/2, true, true );
+				mSbjs = 0;
+				for( iSbj = nSbjs : -1 : 1 )
+					data(iSbj,:) = ToolKit.Hist( abs(populationDur{iSbj}), edges, false, true );
+					mSbjs = mSbjs + mean(abs(populationDur{iSbj}));
+				end
+				data = data / (tStep/1000);
+				mSbjs = mSbjs / nSbjs;
+				m = mean(data,1);
+				sd = std(data,[],1);
+				sem = sd / sqrt(nSbjs);
+				idx = find(m>0);
+				% bar( centers, m, 0.9 );
+				% set( findobj( gca, 'type', 'bar' ), 'LineStyle', 'none', 'FaceAlpha', 1, 'FaceColor', [0.5 0.5 0.5] );
+				% plot( reshape( [1;1;NaN] * centers(idx), 1, [] ), reshape( m(idx) + [-1;1;NaN] * sem(idx), 1, [] ), 'k-' );
+				data = filter( ones(1,round(100/tStep))/round(100/tStep), 1, data, [], 2 );
+				plot( centers, data', 'color', [0.5 0.5 0.5], 'LineWidth', 2 );
+				plot( centers, mean(data,1), 'k', 'LineWidth', 2 );
+				YMax = max(m+sem)*1.2;
+				YMax = max(data(:));
+				plot( [1 1]*mSbjs, [0 YMax], 'k--', 'LineWidth', 2 );
+				text( mSbjs, YMax/1.2*1.19, sprintf( ' %.2fms', mSbjs ), 'HorizontalAlignment', 'left', 'VerticalAlignment', 'top', 'FontSize', 18 );
+				set( gca, 'XLim', [0 410], 'YLim', [0 YMax], 'LineWidth', 2, 'box', 'off', 'FontSize', 20 );
+				xlabel('Blink duration (ms)');
+				ylabel( 'Probability density' );
+
+				varargout{3} = populationDur;
+
+
+
+				%% effect of blink duration
+				% set( figure, 'NumberTitle', 'off', 'name', 'Effect of Blink Duration' );
+				% subplot(2,2,1); hold on;
+				% load( 'F:\BlinkTransient\Reports\2019.09.11\Population.mat' );
+				% plot( mDurs, Population.all.performance.blink - Population.all.performance.noBlink, 'ko', 'MarkerSize', 10, 'LineWidth', 2 );
+				% [B,~,~,~,stats] = regress( (Population.all.performance.blink - Population.all.performance.noBlink)', [ ones(nSbjs,1), mDurs' ] );
+				% plot( get(gca,'XLim'), get( gca, 'xLim' ) .* B(2) + B(1), 'r', 'LineWidth', 2 );
+				% text( mean( get(gca,'xLim') ), max(get(gca,'YLim')), { sprintf( '$y = %.4fx+%.4f$', B(2), B(1) ), sprintf( '$R^2 = %.4f, p = %.4f$', stats(1), stats(3) ) }, 'VerticalAlignment', 'top', 'HorizontalAlignment', 'center', 'FontSize', 20, 'color', 'r', 'interpreter', 'LaTex' );
+				% xlabel( 'Mean blink duration (ms)' );
+				% ylabel( 'Performance enhancement' );
+				% set( gca, 'LineWidth', 2, 'FontSize', 20 );
+				
+				% subplot(2,2,2); hold on;
+				% plot( mDurations.long - mDurations.short, perform.long - perform.short, 'ko', 'MarkerSize', 10, 'LineWidth', 2 );
+				% [B,~,~,~,stats] = regress( (perform.long - perform.short)', [ ones(nSbjs,1), (mDurations.long - mDurations.short)' ] );
+				% plot( get(gca,'XLim'), get( gca, 'xLim' ) .* B(2) + B(1), 'r', 'LineWidth', 2 );
+				% text( mean( get(gca,'xLim') ), max(get(gca,'YLim')), { sprintf( '$y = %.4fx+%.4f$', B(2), B(1) ), sprintf( '$R^2 = %.4f, p = %.4f$', stats(1), stats(3) ) }, 'VerticalAlignment', 'top', 'HorizontalAlignment', 'center', 'FontSize', 20, 'color', 'r', 'interpreter', 'LaTex' );
+				% xlabel( 'Mean blink duration diff. (long - short) (ms)' );
+				% ylabel( 'Performance diff. (long - short)' );
+				% set( gca, 'LineWidth', 2, 'FontSize', 20 );
+
+				% subplot(2,2,3); hold on;
+				% plot( [mDurations.short, mDurations.long], [perform.short, perform.long], 'ko', 'MarkerSize', 10, 'LineWidth', 2 );
+				% [B,~,~,~,stats] = regress( [perform.short, perform.long]', [ ones(nSbjs*2,1), [mDurations.short, mDurations.long]' ] );
+				% plot( get(gca,'XLim'), get( gca, 'xLim' ) .* B(2) + B(1), 'r', 'LineWidth', 2 );
+				% text( mean( get(gca,'xLim') ), max(get(gca,'YLim')), { sprintf( '$y = %.4fx+%.4f$', B(2), B(1) ), sprintf( '$R^2 = %.4f, p = %.4f$', stats(1), stats(3) ) }, 'VerticalAlignment', 'top', 'HorizontalAlignment', 'center', 'FontSize', 20, 'color', 'r', 'interpreter', 'LaTex' );
+				% xlabel( 'Mean blink duration (short or long) (ms)' );
+				% ylabel( 'Performance (short or long)' );
+				% set( gca, 'LineWidth', 2, 'FontSize', 20 );
 			end
 
 			%% Drift proportion VS performance
@@ -2107,7 +2286,86 @@ classdef BlinkTransient < handle
 		end
 
 
-		function [performance, nTrials, sbjs] = PopulationPerformance( condition )
+		function allData = SacDirEffect()
+			sbjs 	= { 'Bin',	'A058',	'A082',	'A002', 'A050', 'A092', 'A029', 'A049', 'A001', 'A098', 'A088', 'A037', 'A043', 'A025' };
+			folders = { 'F:\BlinkTransient\0 Main\Bin\Extracted_0.5s_sf3',...	% 0.5s
+						'F:\BlinkTransient\0 Main\A058\Extracted_1s_sf3',...
+						'F:\BlinkTransient\0 Main\A082\2 FixedLevels\Extracted_1s_sf3',...
+						'F:\BlinkTransient\0 Main\A002',...
+						'F:\BlinkTransient\0 Main\A050',...
+						'F:\BlinkTransient\0 Main\A092',...
+						'F:\BlinkTransient\0 Main\A029',...
+						'F:\BlinkTransient\0 Main\A049',...
+						'F:\BlinkTransient\0 Main\A001',...
+						'F:\BlinkTransient\0 Main\A098',...
+						'F:\BlinkTransient\0 Main\A088\Extracted_1s_sf3',...
+						'F:\BlinkTransient\0 Main\A037',...
+						'F:\BlinkTransient\0 Main\A043\Extracted_1s_sf3',...
+						'F:\BlinkTransient\0 Main\A025' };
+			indices = { 1:29,...	% Bin
+						1:33,...	% A058
+						1:29,...	% A082
+						4:57,...	% A002
+						3:53,...	% A050
+						4:20,...	% A092
+						4:28,...	% A029
+						5:60,...	% A049
+						5:50,...	% A001
+						5:29,...	% A098
+						1:19,...	% A088
+						[4:36,41:45],...	% A037
+						1:19,...	% A043
+						8:32,...	% A025
+						};
+			% if( strcmpi( condition, 'drift' ) )
+			% 	nSbjs = size(sbjs,2) - 5;
+			% else
+			% 	nSbjs = size(sbjs,2);
+			% end
+			nSbjs = size(sbjs,2);
+
+			figure; hold on;
+			for( iSbj = nSbjs : -1 : 1 )
+				data = BlinkTransient.GetLabeledTrials4Blinks( folders{iSbj}, [], [], 'tRampOn', 0, 0 );
+				data = data(indices{iSbj});
+				for( i = 1 : size(data,2) )
+					data(i).trials( [data(i).trials.tBlinkBeepOn] - [data(i).trials.tRampOn] > -600 & ~[data(i).trials.hasBlink] | [data(i).trials.tBlinkBeepOn] - [data(i).trials.tRampOn] < -600 & [data(i).trials.hasBlink] ) = [];
+				end
+				trials = [data.trials];
+				trials = trials(~[trials.hasBlink]);
+
+				nSac = zeros(1,size(trials,2));	% numbe of m/sac perpendicular to grating
+				for( iTrial = 1 : size(trials,2) )
+					sac = [trials(iTrial).microsaccades, trials(iTrial).saccades];
+					s = ( [sac.start] - 1 ) / trials(iTrial).sRate * 1000 + trials(iTrial).tTrialStart;
+					e = ( [sac.start] + [sac.duration] - 2 ) / trials(iTrial).sRate * 1000 + trials(iTrial).tTrialStart;
+					sacDir = [sac.angle]/pi*180;
+					sacDir( s < trials(iTrial).tRampOn + 800 | e > trials(iTrial).tMaskOn ) = [];
+					gratingDir = -trials(iTrial).gaborOri + 90;
+					nSac(iTrial) = sum( abs( sacDir - gratingDir ) < 45 | abs( sacDir - gratingDir - 180 ) < 45 );
+				end
+
+				uniNSac = unique(nSac);
+				uniPerform = zeros(size(uniNSac));
+				nTrials = zeros(size(uniNSac));
+				for( iUni = size(uniNSac,2) : -1 : 1 )
+					nTrials(iUni) = sum( [ trials( nSac == uniNSac(iUni) ).trialType ] == 'c' | [ trials( nSac == uniNSac(iUni) ).trialType ] == 'e' );
+					uniPerform(iUni) = sum( [ trials( nSac == uniNSac(iUni) ).trialType ] == 'c' ) / nTrials(iUni);
+				end
+
+				plot( uniNSac, uniPerform, '-o' );
+
+				% subplot(4,4,iSbj);
+				% hist( [sac.angle]/pi*180, 0:10:360 );
+				allData.nSac{iSbj} = uniNSac;
+				allData.perform{iSbj} = uniPerform;
+				allData.nTrials{iSbj} = nTrials;
+
+			end
+		end
+
+
+		function [performance, nTrials, sbjs, pVals, nTrialsLeft, hitLeft, faRight, dPrime] = PopulationPerformance( condition, saveFolder )
 			%% population comparison of performance with paired t-test
 			%	subjects: Bin, A058, A082, A088, A002, A050, A098, A092, A029, A037, A043, A025
 			%	sf:	3 cpd
@@ -2115,36 +2373,41 @@ classdef BlinkTransient < handle
 			%	plateau:	0.5s (Bin); 1s (A058, A082, A088, A002, A050, A098, A092, A029, A037, A043, A025)
 
 			if( nargin() < 1 ) condition = 'drift'; end
+			if( nargin() < 2 ) saveFolder = []; end
 
 			%% all data, contrast level might vary a little bit for each subject in order to achieve an average performance of about 80%
-			sbjs 	= { 'Bin',	'A058',	'A082',	'A088', 'A002', 'A050', 'A098', 'A092', 'A029', 'A037', 'A043', 'A025' };
-			folders = { 'F:\BlinkTransient\Bin\Extracted_0.5s_sf3',...	% 0.5s
-						'F:\BlinkTransient\A058\Extracted_1s_sf3',...
-						'F:\BlinkTransient\A082\2 FixedLevels\Extracted_1s_sf3',...
-						'F:\BlinkTransient\A088\Extracted_1s_sf3',...
-						'F:\BlinkTransient\A002',...
-						'F:\BlinkTransient\A050',...
-						'F:\BlinkTransient\A098',...
-						'F:\BlinkTransient\A092',...
-						'F:\BlinkTransient\A029',...
-						'F:\BlinkTransient\A037',...
-						'F:\BlinkTransient\A043\Extracted_1s_sf3',...
-						'F:\BlinkTransient\A025' };
+			sbjs 	= { 'Bin',	'A058',	'A082',	'A002', 'A050', 'A092', 'A029', 'A049', 'A001', 'A098', 'A088', 'A037', 'A043', 'A025' };
+			folders = { 'F:\BlinkTransient\0 Main\Bin\Extracted_0.5s_sf3',...	% 0.5s
+						'F:\BlinkTransient\0 Main\A058\Extracted_1s_sf3',...
+						'F:\BlinkTransient\0 Main\A082\2 FixedLevels\Extracted_1s_sf3',...
+						'F:\BlinkTransient\0 Main\A002',...
+						'F:\BlinkTransient\0 Main\A050',...
+						'F:\BlinkTransient\0 Main\A092',...
+						'F:\BlinkTransient\0 Main\A029',...
+						'F:\BlinkTransient\0 Main\A049',...
+						'F:\BlinkTransient\0 Main\A001',...
+						'F:\BlinkTransient\0 Main\A098',...
+						'F:\BlinkTransient\0 Main\A088\Extracted_1s_sf3',...
+						'F:\BlinkTransient\0 Main\A037',...
+						'F:\BlinkTransient\0 Main\A043\Extracted_1s_sf3',...
+						'F:\BlinkTransient\0 Main\A025' };
 			indices = { 1:29,...	% Bin
 						1:33,...	% A058
 						1:29,...	% A082
-						1:19,...	% A088
 						4:57,...	% A002
 						3:53,...	% A050
-						5:29,...	% A098
 						4:20,...	% A092
 						4:28,...	% A029
+						5:60,...	% A049
+						5:50,...	% A001
+						5:29,...	% A098
+						1:19,...	% A088
 						[4:36,41:45],...	% A037
 						1:19,...	% A043
 						8:32,...	% A025
 						};
 			if( strcmpi( condition, 'drift' ) )
-				nSbjs = size(sbjs,2) - 3;
+				nSbjs = size(sbjs,2) - 5;
 			else
 				nSbjs = size(sbjs,2);
 			end
@@ -2152,41 +2415,77 @@ classdef BlinkTransient < handle
 
 			for( iSbj = nSbjs : -1 : 1 )
 				if( strcmpi( condition, 'all' ) )
-					BlinkTransient.FixLevelEffect( sbjs{iSbj}, folders{iSbj}, mat2cell( indices{iSbj}, 1, ones(size(indices{iSbj})) ), [], [], true );
+					[nBlink, ratioBlink, nNoBlink, ratioNoBlink, pVal, nBlinkLeft, hitBlinkLeft, faBlinkRight, nNoBlinkLeft, hitNoBlinkLeft, faNoBlinkRight] = BlinkTransient.FixLevelEffect( sbjs{iSbj}, folders{iSbj}, mat2cell( indices{iSbj}, 1, ones(size(indices{iSbj})) ), [], [], true );
 				elseif( strcmpi( condition, 'drift' ) )
-					BlinkTransient.FixLevelEffect( sbjs{iSbj}, folders{iSbj}, mat2cell( indices{iSbj}, 1, ones(size(indices{iSbj})) ), false, false, true );
+					[nBlink, ratioBlink, nNoBlink, ratioNoBlink, pVal, nBlinkLeft, hitBlinkLeft, faBlinkRight, nNoBlinkLeft, hitNoBlinkLeft, faNoBlinkRight] = BlinkTransient.FixLevelEffect( sbjs{iSbj}, folders{iSbj}, mat2cell( indices{iSbj}, 1, ones(size(indices{iSbj})) ), false, false, true );
 				elseif( strcmpi( condition, 'm/sac' ) )
-					BlinkTransient.FixLevelEffect( sbjs{iSbj}, folders{iSbj}, mat2cell( indices{iSbj}, 1, ones(size(indices{iSbj})) ), true, true, true, false, false );
+					[nBlink, ratioBlink, nNoBlink, ratioNoBlink, pVal, nBlinkLeft, hitBlinkLeft, faBlinkRight, nNoBlinkLeft, hitNoBlinkLeft, faNoBlinkRight] = BlinkTransient.FixLevelEffect( sbjs{iSbj}, folders{iSbj}, mat2cell( indices{iSbj}, 1, ones(size(indices{iSbj})) ), true, true, true, false, false );
 				end
 				set( gca, 'YGrid', 'on', 'YMinorGrid', 'on' );
-				data = BlinkTransient.GetLabeledTrials4Blinks( folders{iSbj}, [], [], 'tRampOn', 0, 0 );
-				data = data(indices{iSbj});
-				for( i = 1 : size(data,2) )
-					data(i).trials( [data(i).trials.tBlinkBeepOn] - [data(i).trials.tRampOn] > -600 & ~[data(i).trials.hasBlink] | [data(i).trials.tBlinkBeepOn] - [data(i).trials.tRampOn] < -600 & [data(i).trials.hasBlink] ) = [];
+				if( ~isempty(saveFolder) )
+					pause(0.1);
+					jf = get(handle(gcf),'javaframe');
+					jf.setMaximized(1);
+					pause(1);
+					saveas( gcf, fullfile( saveFolder, sprintf('%s_%sTrials_Performance.fig', sbjs{iSbj}, condition(condition~='/')) ) );
+					saveas( gcf, fullfile( saveFolder, sprintf('%s_%sTrials_Performance.png', sbjs{iSbj}, condition(condition~='/')) ) );
 				end
-				trials = [data.trials];
+				% data = BlinkTransient.GetLabeledTrials4Blinks( folders{iSbj}, [], [], 'tRampOn', 0, 0 );
+				% data = data(indices{iSbj});
+				% for( i = 1 : size(data,2) )
+				% 	data(i).trials( [data(i).trials.tBlinkBeepOn] - [data(i).trials.tRampOn] > -600 & ~[data(i).trials.hasBlink] | [data(i).trials.tBlinkBeepOn] - [data(i).trials.tRampOn] < -600 & [data(i).trials.hasBlink] ) = [];
+				% end
+				% trials = [data.trials];
 
-				if( strcmpi( condition, 'all' ) )
-					index = true(size(trials));
-				elseif( strcmpi( condition, 'm/sac' ) )
-					index = [trials.hasSac] | [trials.hasMicrosac];
-				else
-					index = ~[trials.hasSac] & ~[trials.hasMicrosac];
+				% if( strcmpi( condition, 'all' ) )
+				% 	index = true(size(trials));
+				% elseif( strcmpi( condition, 'm/sac' ) )
+				% 	index = [trials.hasSac] | [trials.hasMicrosac];
+				% else
+				% 	index = ~[trials.hasSac] & ~[trials.hasMicrosac];
+				% end
+
+				% for( iTrial = 1 : size(trials,2) )
+				% 	notracks = trials(iTrial).notracks;
+				% 	% notracks.start( notracks.duration / trials(iTrial).sRate * 1000 < 15 ) = [];
+				% 	% notracks.duration( notracks.duration / trials(iTrial).sRate * 1000 < 15 ) = [];
+				% 	index(iTrial) = index(iTrial) && sum( max( 0, ...
+				% 		min( (notracks.start+notracks.duration-1)/trials(iTrial).sRate*1000, trials(iTrial).tMaskOn-trials(iTrial).tTrialStart ) - ...
+				% 			max( (notracks.start-1)/trials(iTrial).sRate*1000, trials(iTrial).tRampOn-trials(iTrial).tTrialStart ) ) ) < 15;
+				% end
+
+				% nTrials.blink(iSbj) = sum( [trials.hasBlink] & index & ( [trials.trialType] == 'c' | [trials.trialType] == 'e' ) );
+				% nTrials.noBlink(iSbj) = sum( ~[trials.hasBlink] & index & ( [trials.trialType] == 'c' | [trials.trialType] == 'e' ) );
+				% performance.blink(iSbj) = sum( [trials.hasBlink] & index & [trials.trialType] == 'c' ) / nTrials.blink(iSbj);
+				% performance.noBlink(iSbj) = sum( ~[trials.hasBlink] & index & [trials.trialType] == 'c' ) / nTrials.noBlink(iSbj);
+				
+				%% bootstrap for d-prime
+				nBoots = 10000;
+				N = 100;
+				x{1} = [ ones(1, int32(nBlinkLeft*hitBlinkLeft)), 2*ones(1, int32(nBlinkLeft*(1-hitBlinkLeft))), 3*ones(1, int32((nBlink-nBlinkLeft)*faBlinkRight)), 4*ones(1, int32((nBlink-nBlinkLeft)*(1-faBlinkRight))) ];
+				x{2} = [ ones(1, int32(nNoBlinkLeft*hitNoBlinkLeft)), 2*ones(1, int32(nNoBlinkLeft*(1-hitNoBlinkLeft))), 3*ones(1, int32((nNoBlink-nNoBlinkLeft)*faNoBlinkRight)), 4*ones(1, int32((nNoBlink-nNoBlinkLeft)*(1-faNoBlinkRight))) ];
+				for( k = 1 : 2 )
+					for( iBoot = nBoots:-1:1)
+						y = x{k}(randi(size(x{k},2), 1, N));
+						d(k,iBoot) = norminv(min(0.99, sum(y==1)/sum(y==1|y==2))) - norminv(max(0.01, sum(y==3)/sum(y==3|y==4)));
+					end
 				end
+				p_dPrime = normcdf( diff(mean(d,2)) / sqrt(sum(var(d,0,2))) ) * 2;
 
-				for( iTrial = 1 : size(trials,2) )
-					notracks = trials(iTrial).notracks;
-					% notracks.start( notracks.duration / trials(iTrial).sRate * 1000 < 15 ) = [];
-					% notracks.duration( notracks.duration / trials(iTrial).sRate * 1000 < 15 ) = [];
-					index(iTrial) = index(iTrial) && sum( max( 0, ...
-						min( (notracks.start+notracks.duration-1)/trials(iTrial).sRate*1000, trials(iTrial).tMaskOn-trials(iTrial).tTrialStart ) - ...
-							max( (notracks.start-1)/trials(iTrial).sRate*1000, trials(iTrial).tRampOn-trials(iTrial).tTrialStart ) ) ) < 15;
-				end
-
-				nTrials.blink(iSbj) = sum( [trials.hasBlink] & index & ( [trials.trialType] == 'c' | [trials.trialType] == 'e' ) );
-				nTrials.noBlink(iSbj) = sum( ~[trials.hasBlink] & index & ( [trials.trialType] == 'c' | [trials.trialType] == 'e' ) );
-				performance.blink(iSbj) = sum( [trials.hasBlink] & index & [trials.trialType] == 'c' ) / nTrials.blink(iSbj);
-				performance.noBlink(iSbj) = sum( ~[trials.hasBlink] & index & [trials.trialType] == 'c' ) / nTrials.noBlink(iSbj);
+				nTrials.blink(iSbj) = nBlink;
+				nTrials.noBlink(iSbj) = nNoBlink;
+				performance.blink(iSbj) = ratioBlink;
+				performance.noBlink(iSbj) = ratioNoBlink;
+				pVals(iSbj) = pVal;
+				nTrialsLeft.blink(iSbj) = nBlinkLeft;
+				nTrialsLeft.noBlink(iSbj) = nNoBlinkLeft;
+				hitLeft.blink(iSbj) = hitBlinkLeft;
+				hitLeft.noBlink(iSbj) = hitNoBlinkLeft;
+				faRight.blink(iSbj) = faBlinkRight;
+				faRight.noBlink(iSbj) = faNoBlinkRight;
+				dPrime.blink(iSbj) = norminv(min(0.99,hitBlinkLeft)) - norminv(max(0.01,faBlinkRight));
+				dPrime.noBlink(iSbj) = norminv(min(0.99,hitNoBlinkLeft)) - norminv(max(0.01,faNoBlinkRight));
+				dPrime.pVals(iSbj) = p_dPrime;
 			end
 
 
@@ -2197,9 +2496,9 @@ classdef BlinkTransient < handle
 			else isShowValue = false; end
 			isShowValue = true;
 
-			colors = { [0.5 0.5 1], [0.5 1 1], [0.5 1 0.5], [1 0.5 1], [1 0.5 0.5], [1 1 0.5], [1 0.8 0.6], [1 0.6 0.8], [0.8 1 0.6], [0.8 0.6 1], [0.6 1 0.8], [0.6 0.8 1] };
+			colors = { [0.5 0.5 1], [0.5 1 1], [0.5 1 0.5], [1 0.5 1], [1 0.5 0.5], [1 1 0.5], [1 0.8 0.6], [1 0.6 0.8], [0.8 1 0.6], [0.8 0.6 1], [0.6 1 0.8], [0.6 0.8 1], [1 0.5 0.3], [1 0.3 0.5], [0.5 1 0.3], [0.5 0.3 1], [0.3 1 0.5], [0.3 0.5 1] };
 			
-			subplot(1,2,1); hold on;
+			subplot(1,3,1); hold on;
 			for( i = 1 : size(performance.blink,2) )
 				plot( [1 3], [ performance.noBlink(i), performance.blink(i) ], '^--', 'MarkerSize', 10, 'LineWidth', 2, 'color', colors{i} );
 			end
@@ -2209,21 +2508,58 @@ classdef BlinkTransient < handle
 			ToolKit.ShowSignificance( [1, 1.05], [3, 1.05], pVal, 0.02, isShowValue, 'FontSize', 24 );
 			ylabel('Performance');
 
-			subplot(1,2,2); hold on;
+			subplot(1,3,2); hold on;
 			plot( [0 1], [0 1], 'k--', 'LineWidth', 1 );
 			for( i = 1 : size(performance.blink,2) )
 				h(i) = plot( performance.noBlink(i), performance.blink(i), '^', 'MarkerSize', 10, 'LineWidth', 2, 'color', colors{i}, 'DisplayName', sbjs{i} );
 			end
 			plot( mean(performance.noBlink), mean(performance.blink), 's', 'MarkerSize', 12, 'LineWidth', 2, 'color', 'k' );
 			plot( [1 1] * mean(performance.noBlink), mean(performance.noBlink) - CI, 'k-', 'LineWidth', 2 );
+			axis equal;
 			set( gca, 'XLim', [0.5 1], 'YLim', [0.5 1], 'XTick', 0.5:0.1:1, 'YTick', 0.5:0.1:1, 'LineWidth', 2, 'FontSize', 20 );
 			set( legend(h), 'location', 'NorthEast', 'FontSize', 16 );
 			xlabel('No Blink performance');
 			ylabel('Blink performance');
+
+
+			%% d-prime
+			[~, pVal, CI] = ttest( dPrime.noBlink, dPrime.blink, 'alpha', 0.05 )
+			if( pVal < 0.1 && pVal > 0.05 ) isShowValue = true;
+			else isShowValue = false; end
+			isShowValue = true;
+
+			subplot(1,3,3); hold on;
+			for( i = 1 : size(dPrime.blink,2) )
+				h(i) = plot( dPrime.noBlink(i), dPrime.blink(i), '^', 'MarkerSize', 10, 'LineWidth', 2, 'color', colors{i}, 'DisplayName', sbjs{i} );
+			end
+			plot( mean(dPrime.noBlink), mean(dPrime.blink), 's', 'MarkerSize', 12, 'LineWidth', 2, 'color', 'k' );
+			plot( [1 1] * mean(dPrime.noBlink), mean(dPrime.noBlink) - CI, 'k-', 'LineWidth', 2 );
+			XLim = get( gca, 'XLim' );
+			YLim = get( gca, 'YLim' );
+			XLim = [min(XLim(1), YLim(1)), max(XLim(2), YLim(2))];
+			XLim = [1 5];
+			plot( XLim, XLim, 'k--', 'LineWidth', 1 );
+			text( XLim(2), XLim(1)+0.1*diff(XLim), sprintf('p = %.4f\nCI = [%.4f,%.4f]', pVal, -CI), 'FontSize', 18, 'HorizontalAlignment', 'right', 'VerticalAlignment', 'bottom' );
+			axis equal;
+			set( gca, 'XLim', XLim, 'YLim', XLim, 'LineWidth', 2, 'FontSize', 20 );
+			set( legend(h), 'location', 'NorthEast', 'FontSize', 16 );
+			xlabel('No Blink dPrime');
+			ylabel('Blink dPrime');
+
+			set( gcf, 'position', [0, 300, 1918, 544] );
+
+			if( ~isempty(saveFolder) )
+				pause(0.1);
+				jf = get(handle(gcf),'javaframe');
+				jf.setMaximized(1);
+				pause(1);
+				saveas( gcf, fullfile( saveFolder, sprintf('Population_%sTrials_Performance.fig', condition(condition~='/')) ) );
+				saveas( gcf, fullfile( saveFolder, sprintf('Population_%sTrials_Performance.png', condition(condition~='/')) ) );
+			end
 		end
 
 
-		function [performance, nTrials, sbjs] = PopulationPerformanceCtrl( condition )
+		function [performance, nTrials, sbjs, pVals, nTrialsLeft, hitLeft, faRight, dPrime] = PopulationPerformanceCtrl( condition, saveFolder )
 			%% population comparison of performance with paired t-test; control experiment where blink was simulated with a brief blackout of the screen
 			%	subjects: A082, A002, A050, A092
 			%	sf:	3 cpd
@@ -2231,56 +2567,101 @@ classdef BlinkTransient < handle
 			%	plateau: 1s
 
 			if( nargin() < 1 ) condition = 'drift'; end
+			if( nargin() < 2 ) saveFolder = []; end
 
 			%% all data, contrast level might vary a little bit for each subject in order to achieve an average performance of about 80%
-			sbjs 	= { 'A050', 'A092', 'A082', 'A002', 'A029' };
-			folders = { 'F:\BlinkTransient\0 SimulateBlinks\A050',...
-						'F:\BlinkTransient\0 SimulateBlinks\A092',...
-						'F:\BlinkTransient\0 SimulateBlinks\A082',...
-						'F:\BlinkTransient\0 SimulateBlinks\A002',...
-						'F:\BlinkTransient\0 SimulateBlinks\A029',...
+			sbjs 	= { 'A050', 'A092', 'A049', 'A075', 'A082', 'A056', 'A002' };
+			folders = { 'F:\BlinkTransient\1 ControlV1\A050',...
+						'F:\BlinkTransient\3 ControlV2\A092',...
+						'F:\BlinkTransient\1 ControlV1\A049',...
+						'F:\BlinkTransient\1 ControlV1\A075',...
+						'F:\BlinkTransient\1 ControlV1\A082',...
+						'F:\BlinkTransient\1 ControlV1\A056',...
+						'F:\BlinkTransient\1 ControlV1\A002',...
 						 };
 			indices = { 3:31,...	% A050
 						1:29,...	% A092
-						3:42,...	% A082
+						1:68,...	% A049
+						3:25,...	% A075
+						3:31,...% 3:42,...	% A082
+						2:44,...	% A056
 						1:25,...	% A002
-						1:5,...		% A029
 						};
-			nSbjs = 2; %size(sbjs,2);
+
+			nSbjs = size(sbjs,2);
+			if( strcmpi( condition, 'drift' ) )
+				nSbjs = nSbjs - 1;		% A002 has too few drift only trials
+			end
 			
 			for( iSbj = nSbjs : -1 : 1 )
 				if( strcmpi( condition, 'all' ) )
-					BlinkTransient.FixLevelEffect( [sbjs{iSbj}, 'Ctrl'], folders{iSbj}, mat2cell( indices{iSbj}, 1, ones(size(indices{iSbj})) ), [], [], true );
+					[nBlink, ratioBlink, nNoBlink, ratioNoBlink, pVal, nBlinkLeft, hitBlinkLeft, faBlinkRight, nNoBlinkLeft, hitNoBlinkLeft, faNoBlinkRight] = BlinkTransient.FixLevelEffect( [sbjs{iSbj}, 'Ctrl'], folders{iSbj}, mat2cell( indices{iSbj}, 1, ones(size(indices{iSbj})) ), [], [], true );
 				else
-					BlinkTransient.FixLevelEffect( [sbjs{iSbj}, 'Ctrl'], folders{iSbj}, mat2cell( indices{iSbj}, 1, ones(size(indices{iSbj})) ), false, false, true );
+					[nBlink, ratioBlink, nNoBlink, ratioNoBlink, pVal, nBlinkLeft, hitBlinkLeft, faBlinkRight, nNoBlinkLeft, hitNoBlinkLeft, faNoBlinkRight] = BlinkTransient.FixLevelEffect( [sbjs{iSbj}, 'Ctrl'], folders{iSbj}, mat2cell( indices{iSbj}, 1, ones(size(indices{iSbj})) ), false, false, true );
 				end
 				set( gca, 'YGrid', 'on', 'YMinorGrid', 'on' );
-				data = BlinkTransient.GetLabeledTrials4Blinks( folders{iSbj}, [], [], 'tRampOn', 0, 0 );
-				data = data(indices{iSbj});
-				for( i = 1 : size(data,2) )
-					data(i).trials( [data(i).trials.tBlinkBeepOn] - [data(i).trials.tRampOn] > -600 & ~[data(i).trials.hasBlink] | [data(i).trials.tBlinkBeepOn] - [data(i).trials.tRampOn] < -600 & [data(i).trials.hasBlink] ) = [];
+				if( ~isempty(saveFolder) )
+					pause(0.1);
+					jf = get(handle(gcf),'javaframe');
+					jf.setMaximized(1);
+					pause(1);
+					saveas( gcf, fullfile( saveFolder, sprintf('%s_%sTrials_Performance.fig', sbjs{iSbj}, condition(condition~='/')) ) );
+					saveas( gcf, fullfile( saveFolder, sprintf('%s_%sTrials_Performance.png', sbjs{iSbj}, condition(condition~='/')) ) );
 				end
-				trials = [data.trials];
+				% data = BlinkTransient.GetLabeledTrials4Blinks( folders{iSbj}, [], [], 'tRampOn', 0, 0 );
+				% data = data(indices{iSbj});
+				% for( i = 1 : size(data,2) )
+				% 	data(i).trials( [data(i).trials.tBlinkBeepOn] - [data(i).trials.tRampOn] > -600 & ~[data(i).trials.hasBlink] | [data(i).trials.tBlinkBeepOn] - [data(i).trials.tRampOn] < -600 & [data(i).trials.hasBlink] ) = [];
+				% end
+				% trials = [data.trials];
 
-				if( strcmpi( condition, 'all' ) )
-					index = true(size(trials));
-				else
-					index = ~[trials.hasSac] & ~[trials.hasMicrosac];
+				% if( strcmpi( condition, 'all' ) )
+				% 	index = true(size(trials));
+				% else
+				% 	index = ~[trials.hasSac] & ~[trials.hasMicrosac];
+				% end
+
+				% for( iTrial = 1 : size(trials,2) )
+				% 	notracks = trials(iTrial).notracks;
+				% 	% notracks.start( notracks.duration / trials(iTrial).sRate * 1000 < 15 ) = [];
+				% 	% notracks.duration( notracks.duration / trials(iTrial).sRate * 1000 < 15 ) = [];
+				% 	index(iTrial) = index(iTrial) && sum( max( 0, ...
+				% 		min( (notracks.start+notracks.duration-1)/trials(iTrial).sRate*1000, trials(iTrial).tMaskOn-trials(iTrial).tTrialStart ) - ...
+				% 			max( (notracks.start-1)/trials(iTrial).sRate*1000, trials(iTrial).tRampOn-trials(iTrial).tTrialStart ) ) ) < 15;
+				% end
+
+				% nTrials.blink(iSbj) = sum( [trials.hasBlink] & index & ( [trials.trialType] == 'c' | [trials.trialType] == 'e' ) );
+				% nTrials.noBlink(iSbj) = sum( ~[trials.hasBlink] & index & ( [trials.trialType] == 'c' | [trials.trialType] == 'e' ) );
+				% performance.blink(iSbj) = sum( [trials.hasBlink] & index & [trials.trialType] == 'c' ) / nTrials.blink(iSbj);
+				% performance.noBlink(iSbj) = sum( ~[trials.hasBlink] & index & [trials.trialType] == 'c' ) / nTrials.noBlink(iSbj);
+
+				%% bootstrap for d-prime
+				nBoots = 10000;
+				N = 100;
+				x{1} = [ ones(1, int32(nBlinkLeft*hitBlinkLeft)), 2*ones(1, int32(nBlinkLeft*(1-hitBlinkLeft))), 3*ones(1, int32((nBlink-nBlinkLeft)*faBlinkRight)), 4*ones(1, int32((nBlink-nBlinkLeft)*(1-faBlinkRight))) ];
+				x{2} = [ ones(1, int32(nNoBlinkLeft*hitNoBlinkLeft)), 2*ones(1, int32(nNoBlinkLeft*(1-hitNoBlinkLeft))), 3*ones(1, int32((nNoBlink-nNoBlinkLeft)*faNoBlinkRight)), 4*ones(1, int32((nNoBlink-nNoBlinkLeft)*(1-faNoBlinkRight))) ];
+				for( k = 1 : 2 )
+					for( iBoot = nBoots:-1:1)
+						y = x{k}(randi(size(x{k},2), 1, N));
+						d(k,iBoot) = norminv(min(0.99, sum(y==1)/sum(y==1|y==2))) - norminv(max(0.01, sum(y==3)/sum(y==3|y==4)));
+					end
 				end
+				p_dPrime = normcdf( diff(mean(d,2)) / sqrt(sum(var(d,0,2))) ) * 2;
 
-				for( iTrial = 1 : size(trials,2) )
-					notracks = trials(iTrial).notracks;
-					% notracks.start( notracks.duration / trials(iTrial).sRate * 1000 < 15 ) = [];
-					% notracks.duration( notracks.duration / trials(iTrial).sRate * 1000 < 15 ) = [];
-					index(iTrial) = index(iTrial) && sum( max( 0, ...
-						min( (notracks.start+notracks.duration-1)/trials(iTrial).sRate*1000, trials(iTrial).tMaskOn-trials(iTrial).tTrialStart ) - ...
-							max( (notracks.start-1)/trials(iTrial).sRate*1000, trials(iTrial).tRampOn-trials(iTrial).tTrialStart ) ) ) < 15;
-				end
-
-				nTrials.blink(iSbj) = sum( [trials.hasBlink] & index & ( [trials.trialType] == 'c' | [trials.trialType] == 'e' ) );
-				nTrials.noBlink(iSbj) = sum( ~[trials.hasBlink] & index & ( [trials.trialType] == 'c' | [trials.trialType] == 'e' ) );
-				performance.blink(iSbj) = sum( [trials.hasBlink] & index & [trials.trialType] == 'c' ) / nTrials.blink(iSbj);
-				performance.noBlink(iSbj) = sum( ~[trials.hasBlink] & index & [trials.trialType] == 'c' ) / nTrials.noBlink(iSbj);
+				nTrials.blink(iSbj) = nBlink;
+				nTrials.noBlink(iSbj) = nNoBlink;
+				performance.blink(iSbj) = ratioBlink;
+				performance.noBlink(iSbj) = ratioNoBlink;
+				pVals(iSbj) = pVal;
+				nTrialsLeft.blink(iSbj) = nBlinkLeft;
+				nTrialsLeft.noBlink(iSbj) = nNoBlinkLeft;
+				hitLeft.blink(iSbj) = hitBlinkLeft;
+				hitLeft.noBlink(iSbj) = hitNoBlinkLeft;
+				faRight.blink(iSbj) = faBlinkRight;
+				faRight.noBlink(iSbj) = faNoBlinkRight;
+				dPrime.blink(iSbj) = norminv(min(0.9999,hitBlinkLeft)) - norminv(max(0.0001,faBlinkRight));
+				dPrime.noBlink(iSbj) = norminv(min(0.9999,hitNoBlinkLeft)) - norminv(max(0.0001,faNoBlinkRight));
+				dPrime.pVals(iSbj) = p_dPrime;
 			end
 
 
@@ -2293,7 +2674,7 @@ classdef BlinkTransient < handle
 
 			colors = { [0.5 0.5 1], [0.5 1 1], [0.5 1 0.5], [1 0.5 1], [1 0.5 0.5], [1 1 0.5], [1 0.8 0.6], [1 0.6 0.8], [0.8 1 0.6], [0.8 0.6 1], [0.6 1 0.8], [0.6 0.8 1] };
 			
-			subplot(1,2,1); hold on;
+			subplot(1,3,1); hold on;
 			for( i = 1 : size(performance.blink,2) )
 				plot( [1 3], [ performance.noBlink(i), performance.blink(i) ], '^--', 'MarkerSize', 10, 'LineWidth', 2, 'color', colors{i}, 'DisplayName', sbjs{i} );
 			end
@@ -2303,22 +2684,330 @@ classdef BlinkTransient < handle
 			ToolKit.ShowSignificance( [1, 1.05], [3, 1.05], pVal, 0.02, isShowValue, 'FontSize', 24 );
 			ylabel('Performance');
 
-			subplot(1,2,2); hold on;
+			subplot(1,3,2); hold on;
 			plot( [0 1], [0 1], 'k--', 'LineWidth', 1 );
 			for( i = 1 : size(performance.blink,2) )
 				h(i) = plot( performance.noBlink(i), performance.blink(i), '^', 'MarkerSize', 10, 'LineWidth', 2, 'color', colors{i}, 'DisplayName', sbjs{i} );
 			end
 			plot( mean(performance.noBlink), mean(performance.blink), 's', 'MarkerSize', 12, 'LineWidth', 2, 'color', 'k' );
 			plot( [1 1] * mean(performance.noBlink), mean(performance.noBlink) - CI, 'k-', 'LineWidth', 2 );
+			axis equal;
 			set( gca, 'XLim', [0.5 1], 'YLim', [0.5 1], 'XTick', 0.5:0.1:1, 'YTick', 0.5:0.1:1, 'LineWidth', 2, 'FontSize', 20 );
 			set( legend(h), 'location', 'NorthEast', 'FontSize', 16 );
 			xlabel('No Blink performance');
 			ylabel('Blink performance');
+
+			%% d-prime
+			[~, pVal, CI] = ttest( dPrime.noBlink, dPrime.blink, 'alpha', 0.05 )
+			if( pVal < 0.1 && pVal > 0.05 ) isShowValue = true;
+			else isShowValue = false; end
+			isShowValue = true;
+
+			subplot(1,3,3); hold on;
+			plot( [0 1], [0 1], 'k--', 'LineWidth', 1 );
+			for( i = 1 : size(dPrime.blink,2) )
+				h(i) = plot( dPrime.noBlink(i), dPrime.blink(i), '^', 'MarkerSize', 10, 'LineWidth', 2, 'color', colors{i}, 'DisplayName', sbjs{i} );
+			end
+			plot( mean(dPrime.noBlink), mean(dPrime.blink), 's', 'MarkerSize', 12, 'LineWidth', 2, 'color', 'k' );
+			plot( [1 1] * mean(dPrime.noBlink), mean(dPrime.noBlink) - CI, 'k-', 'LineWidth', 2 );
+			XLim = get( gca, 'XLim' );
+			YLim = get( gca, 'YLim' );
+			XLim = [min(XLim(1), YLim(1)), max(XLim(2), YLim(2))];
+			plot( XLim, XLim, 'k--', 'LineWidth', 1 );
+			text( XLim(2), XLim(1)+0.1*diff(XLim), sprintf('p = %.4f\nCI = [%.4f,%.4f]', pVal, -CI), 'FontSize', 18, 'HorizontalAlignment', 'right', 'VerticalAlignment', 'bottom' );
+			axis equal;
+			set( gca, 'XLim', XLim, 'YLim', XLim, 'LineWidth', 2, 'FontSize', 20 );
+			set( legend(h), 'location', 'NorthEast', 'FontSize', 16 );
+			xlabel('No Blink dPrime');
+			ylabel('Blink dPrime');
+
+			set( gcf, 'position', [0, 300, 1918, 544] );
+
+			if( ~isempty(saveFolder) )
+				pause(0.1);
+				jf = get(handle(gcf),'javaframe');
+				jf.setMaximized(1);
+				pause(1);
+				saveas( gcf, fullfile( saveFolder, sprintf('Population_%sTrials_Performance.fig', condition(condition~='/')) ) );
+				saveas( gcf, fullfile( saveFolder, sprintf('Population_%sTrials_Performance.png', condition(condition~='/')) ) );
+			end
+		end
+
+
+		function [	mdlBlink, bBlink, pBlink, ROCBlink, AUCBlink,...
+					mdlBlinkFull, pBlinkTime, ROCBlinkFull, AUCBlinkFull,...
+					mdlFullCat, bFullCat, pFullCatCoef, pEMsCat,...
+					mdlFullCatCont, pEMsCatCont,...
+					targets, predictors ] = FactorAnalysis( Version )
+			%% logistic regression
+			%  report = b0 + b1*blink + b2*mSac + b3*sac + b4*dCoef
+			%
+			%  report:	report, wrong(0) or correct(1)
+			%
+			%  blink:	blink(1) or not(0); Or consider timing???????
+			%  mSac:	binary for yes(1) or no(0); or number of microsaccades??????
+			%  sac:		binary for yes(1) or no(0); Or number of saccades??????
+			%  dCoef:	drift difussion coefficient
+			%
+			%  Arguments:
+			%	Version:	experiment version: 'main' or 'control'
+
+			if( nargin() < 1 )
+				Version = 'main';
+			end
+
+			if( strcmpi( Version, 'main' ) )
+				%% all data, contrast level might vary a little bit for each subject in order to achieve an average performance of about 80%
+				sbjs 	= { 'Bin',	'A058',	'A082',	'A088', 'A002', 'A050', 'A098', 'A092', 'A029', 'A049', 'A001', 'A037', 'A043', 'A025' };
+				folders = { 'F:\BlinkTransient\0 Main\Bin\Extracted_0.5s_sf3',...	% 0.5s
+							'F:\BlinkTransient\0 Main\A058\Extracted_1s_sf3',...
+							'F:\BlinkTransient\0 Main\A082\2 FixedLevels\Extracted_1s_sf3',...
+							'F:\BlinkTransient\0 Main\A088\Extracted_1s_sf3',...
+							'F:\BlinkTransient\0 Main\A002',...
+							'F:\BlinkTransient\0 Main\A050',...
+							'F:\BlinkTransient\0 Main\A098',...
+							'F:\BlinkTransient\0 Main\A092',...
+							'F:\BlinkTransient\0 Main\A029',...
+							'F:\BlinkTransient\0 Main\A049',...
+							'F:\BlinkTransient\0 Main\A001',...
+							'F:\BlinkTransient\0 Main\A037',...
+							'F:\BlinkTransient\0 Main\A043\Extracted_1s_sf3',...
+							'F:\BlinkTransient\0 Main\A025' };
+				indices = { 1:29,...	% Bin
+							1:33,...	% A058
+							1:29,...	% A082
+							1:19,...	% A088
+							4:57,...	% A002
+							3:53,...	% A050
+							5:29,...	% A098
+							4:20,...	% A092
+							4:28,...	% A029
+							5:60,...	% A049
+							5:50,...	% A001
+							[4:36,41:45],...	% A037
+							1:19,...	% A043
+							8:32,...	% A025
+							};
+			elseif( strcmpi( Version, 'control' ) )
+				%% all data, contrast level might vary a little bit for each subject in order to achieve an average performance of about 80%
+				sbjs 	= { 'A050', 'A092', 'A049', 'A075', 'A082', 'A002', 'A056' };
+				folders = { 'F:\BlinkTransient\1 ControlV1\A050',...
+							'F:\BlinkTransient\3 ControlV2\A092',...
+							'F:\BlinkTransient\1 ControlV1\A049',...
+							'F:\BlinkTransient\1 ControlV1\A075',...
+							'F:\BlinkTransient\1 ControlV1\A082',...
+							'F:\BlinkTransient\1 ControlV1\A056',...
+							'F:\BlinkTransient\1 ControlV1\A002',...
+							 };
+				indices = { 3:31,...	% A050
+							1:29,...	% A092
+							1:68,...	% A049
+							3:25,...	% A075
+							3:31,...% 3:42,...	% A082
+							2:44,...	% A056
+							1:25,...	% A002
+							};
+			else
+				fprintf( 'Wrong argument: %s\n', Version );
+				return;
+			end
+			nSbjs = size(sbjs,2);
+			
+			for( iSbj = nSbjs : -1 : 1 )
+				fprintf( 'Sbj: %d...\n', iSbj );
+
+				fprintf( '\tPrepare data...\n' );
+				data = BlinkTransient.GetLabeledTrials4Blinks( folders{iSbj}, [], [], 'tRampOn', 0, 0 );
+				data = data(indices{iSbj});
+				for( i = 1 : size(data,2) )
+					data(i).trials( [data(i).trials.tBlinkBeepOn] - [data(i).trials.tRampOn] > -600 & ~[data(i).trials.hasBlink] | [data(i).trials.tBlinkBeepOn] - [data(i).trials.tRampOn] < -600 & [data(i).trials.hasBlink] ) = [];
+				end
+				trials = BlinkTransient.ETScreen( [data.trials] );
+				trials = trials( [trials.trialType] == 'e' | [trials.trialType] == 'c' );
+
+				Y = ( [trials.trialType] == 'c' )';
+				X = zeros( size(trials,2), 6 );
+				X(:,1) = [trials.hasBlink];			% has blink(1) or not(0)
+				X(:,6) = [trials.hasMicrosac];		% has microsaccades(1) or not(0)
+				X(:,7) = [trials.hasSac];			% has saccades(1) or not(0)
+				
+				%% get drift characteristics, and number of m/sac (continuous)
+				drifts = GetDrifts( trials, 'tRampOn', 0, 'tMaskOn', 0, 50, 'cut', 'cut' );		% ( trials, LBEvent, LBOffset, UBEvent, UBOffset, cutSeg, LBOverlap, UBOverlap )
+				for( iTrial = size(trials,2) : -1 : 1 )
+					t = ( trials(iTrial).blinks.start - 1 ) / trials(iTrial).sRate * 1000 - ( trials(iTrial).tRampOn - trials(iTrial).tTrialStart );
+					dur = trials(iTrial).blinks.duration / trials(iTrial).sRate * 1000;
+					if( trials(iTrial).hasBlink )
+						X(iTrial,3) = t( find( t > 0, 1, 'first' ) );	% blink time during stimulus
+						X(iTrial,2) = 0;
+						X(iTrial,4) = dur( find( t > 0, 1, 'first' ) );	 % blink duration during stimulus
+						X(iTrial,5) = 0;
+					else
+						ind = find( t < 0, 1, 'last' );		% blink time during fixation
+						if( ~isempty(ind) )
+							X(iTrial,2) = t(ind);
+							X(iTrial,3) = 0;
+							X(iTrial,4) = dur(ind);
+							X(iTrial,5) = 0;
+						else
+							X(iTrial,2) = NaN;
+							X(iTrial,3) = NaN;
+							X(iTrial,4) = NaN;
+							X(iTrial,5) = NaN;
+						end
+					end
+					X(iTrial,8) = sum( ( trials(iTrial).tRampOn - trials(iTrial).tTrialStart ) <= ( trials(iTrial).microsaccades.start - 1 ) / trials(iTrial).sRate * 1000 & ( trials(iTrial).microsaccades.start + trials(iTrial).microsaccades.duration - 2 ) / trials(iTrial).sRate * 1000 <= ( trials(iTrial).tMaskOn - trials(iTrial).tTrialStart ) );
+					X(iTrial,9) = sum( ( trials(iTrial).tRampOn - trials(iTrial).tTrialStart ) <= ( trials(iTrial).saccades.start - 1 ) / trials(iTrial).sRate * 1000 & ( trials(iTrial).saccades.start + trials(iTrial).saccades.duration - 2 ) / trials(iTrial).sRate * 1000 <= ( trials(iTrial).tMaskOn - trials(iTrial).tTrialStart ) );
+					if( ~isempty(drifts{iTrial}) && max( [drifts{iTrial}.end] - [drifts{iTrial}.start] + 1 ) >= 100/1000*trials(iTrial).sRate )
+						[~, ~, diffCoeff, ~, dsq, DsqSingleSeg] = CalculateDiffusionCoef( drifts{iTrial}, 'fsampling', trials(iTrial).sRate, 'MaxTime', max( [drifts{iTrial}.end] - [drifts{iTrial}.start] + 1 ), 'RegressionExclusionLag', 0 );
+						X(iTrial,10) = diffCoeff;
+					else
+						X(iTrial,10) = NaN;
+					end
+				end
+
+				Y( isnan(X(:,10)) | isnan(X(:,2)) ) = [];
+				X( isnan(X(:,10)) | isnan(X(:,2)), : ) = [];
+
+				predictors{iSbj} = X;
+				targets{iSbj} = Y;
+
+				%% Blink Model
+				fprintf( '\tBlink Model...\n' );
+				mdlBlink{iSbj} = fitglm( X(:,1), Y, 'linear', 'distribution', 'binomial' );
+				bBlink(iSbj) = mdlBlink{iSbj}.Coefficients.Estimate(2);
+				pBlink(iSbj) = mdlBlink{iSbj}.devianceTest.pValue(2);		% p-value out of F-test, compared to bias term
+				
+				% roc
+				nBoots = 2000;
+				N = round( size(Y,1) / 4.0 * 3 );
+				for( iBoot = nBoots : -1 : 1 )
+					index = randperm( size(Y,1) );
+					ROCBlink{iSbj,iBoot} = [];
+					while( size( ROCBlink{iSbj,iBoot}, 1 ) ~= 3 )
+						index = randperm( size(Y,1) );
+						mdl = fitglm( X( index(1:N), 1 ), Y( index(1:N) ), 'linear', 'distribution', 'binomial' );
+						[tpr, fpr] = roc( Y( index(N+1:end) )', mdl.predict( X( index(N+1:end), 1 ) )' );	% True Positive Rate, False Positive Rate
+						ROCBlink{iSbj,iBoot} = unique( [tpr;fpr]', 'rows' );
+						if(size( ROCBlink{iSbj,iBoot}, 1 ) ~= 3)
+							'test';
+						end
+					end
+					if( mdl.Coefficients.Estimate(2) < 0 )
+						ROCBlink{iSbj,iBoot} = ROCBlink{iSbj,iBoot}(:,[2 1]);
+					end
+					AUCBlink(iSbj,iBoot) = AreaUnderROC( ROCBlink{iSbj,iBoot} );		% this is a function in Psychtoolbox; = ( a(2:end,2) - a(1:end-1,2) )' * ( a(2:end,1) + a(1:end-1,1) ) / 2
+				end
+
+				%% Blink Model also considering blink timing, with one coefficient for No Blink Condition (blinks during fixation) and one for Blink Condition (blinks during stimulus)
+				fprintf( '\tBlink Full Model...\n' );
+				mdlBlinkFull{iSbj} = fitglm( X(:,[1,2,3,4,5]), Y, 'linear', 'distribution', 'binomial' );
+				% bBlinkFull(:,iSbj) = mdlBlinkFull{iSbj}.Coefficients.Estimate(2:end);
+				% pBlinkFullCoef(:,iSbj) = mdlBlinkFull{iSbj}.Coefficients.pValue(2:end);		% p-value of individual coefficients out of t-test
+				pBlinkTime(iSbj) = 1 - chi2cdf( mdlBlink{iSbj}.Deviance - mdlBlinkFull{iSbj}.Deviance, mdlBlink{iSbj}.DFE - mdlBlinkFull{iSbj}.DFE );		% p-value of blink timing (both fixation and stimulus conditions) out of F-test, compared to categorical blink alone
+
+				%% Full Model Categorical (m/sac categorical)
+				fprintf( '\tFull Model Categorical EMs...\n' );
+				mdlFullCat{iSbj} = fitglm( X(:,[1,6,7,10]), Y, 'linear', 'distribution', 'binomial');
+				bFullCat(:,iSbj) = mdlFullCat{iSbj}.Coefficients.Estimate(2:end);
+				pFullCatCoef(:,iSbj) = mdlFullCat{iSbj}.Coefficients.pValue(2:end);
+				pEMsCat(iSbj) = 1 - chi2cdf( mdlBlink{iSbj}.Deviance - mdlFullCat{iSbj}.Deviance, mdlBlink{iSbj}.DFE - mdlFullCat{iSbj}.DFE );
+
+				%% Full Model Categorical + Continuous (m/sac categorical + continuous)
+				fprintf( '\tFull Model Categorical + Continuous EMs...\n' );
+				mdlFullCatCont{iSbj} = fitglm( X(:,[1,6,7,8,9,10]), Y, 'linear', 'distribution', 'binomial');
+				% bFullCatCont(:,iSbj) = mdlFullCatCont{iSbj}.Coefficients.Estimate(2:end);
+				% pFullCatContCoef(:,iSbj) = mdlFullCatCont{iSbj}.Coefficients.pValue(2:end);
+				pEMsCatCont(iSbj) = 1 - chi2cdf( mdlBlink{iSbj}.Deviance - mdlFullCatCont{iSbj}.Deviance, mdlBlink{iSbj}.DFE - mdlFullCatCont{iSbj}.DFE );
+			end
+
+			pFullCatCoef(1,:) = pFullCatCoef(1,:) / 2;	% single sided for Blink
+			pFullCatCoef( 1, bFullCat(1,:) < 0 ) = 1 - pFullCatCoef( 1, bFullCat(1,:) < 0 );
+			pBlink( bBlink < 0 & pBlink < 0.05 ) = 1 - pBlink( bBlink < 0 & pBlink < 0.05 );
+
+
+			set( figure, 'NumberTitle', 'off', 'name', sprintf( 'Logistic Regression | %s%s', upper(Version(1)), Version(2:end) ), 'color', 'w' );
+			subplot(2,2,1); hold on;
+			p = 0.025 : 0.05 : 1;
+			bar( p, [ hist( pFullCatCoef(1,:), p );...
+					  hist( pFullCatCoef(2,:), p );...
+					  hist( pFullCatCoef(3,:), p );...
+					  hist( pFullCatCoef(4,:), p ) ]', 'stacked', 'LineStyle', 'none' );
+			legend( 'Blink', 'Microsac', 'Sac', 'DriftDF' );
+			xlabel( '$p$-value', 'interpreter', 'latex' );
+			ylabel( 'Number of subjects' );
+			set( gca, 'xLim', [0 1], 'YLim', get(gca,'YLim')*1.2, 'FontSize', 20, 'LineWidth', 2, 'box', 'off' );
+			title( '$t$-test of Coeff. in Full Model', 'interpreter', 'latex' );	% single sided
+
+
+			subplot(2,2,2); hold on;
+			bar( p, [ hist( pBlink, p );...
+					  hist( pBlinkTime, p );...
+					  hist( pEMsCat, p );...
+					  hist( pEMsCatCont, p ) ]', 'stacked', 'LineStyle', 'none' );
+			legend( 'Blink', 'Blink Time & Dur', 'Cat. EMs', 'Cat. & Cont. EMs' );
+			xlabel( '$p$-value', 'interpreter', 'latex' );
+			ylabel( 'Number of subjects' );
+			set( gca, 'xLim', [0 1], 'YLim', get(gca,'YLim')*1.2, 'FontSize', 20, 'LineWidth', 2, 'box', 'off' );
+			title( '$F$-test', 'interpreter', 'LaTex' );
+
+
+			subplot(2,2,3); hold on;
+			plot( [0 1], [0 1], 'k', 'LineWidth', 3 );
+			for( iSbj = 1 : nSbjs )
+				ROC = mean( cat(3,ROCBlink{iSbj,:}), 3 );
+				if( pBlink(iSbj) < 0.05 )
+					plot( ROC(:,2), ROC(:,1), 'LineWidth', 2 );
+				else
+					plot( ROC(:,2), ROC(:,1), '--', 'LineWidth', 2 );
+				end
+			end
+			xlabel( 'False positive rate' );
+			ylabel( 'True positive rate' );
+			set( gca, 'XLim', [0 1], 'YLim', [0 1], 'FontSize', 20, 'LineWidth', 2, 'box', 'off' );
+			axis square;
+			title( 'Blink Model ROC', 'interpreter', 'LaTex' );
+
+
+			subplot(2,2,4); hold on;
+			data = mean( AUCBlink, 2 )';
+			p = 0.29:0.015:0.8;
+			H = bar( p, [ hist( data( pBlink <= 0.05 ), p );...
+						  hist( data( pBlink > 0.05 ), p ) ]', 'stacked', 'LineStyle', 'none' );
+			H(1).FaceColor = 'r';
+			H(2).FaceColor = 'k';
+			
+			% mean and t-test
+			y = get(gca,'YLim') * 1.2;
+			plot( [1 1]*mean(data), y, 'k--', 'LineWidth', 2 );
+			[~, pVal] = ttest( data - 0.5 );
+			txt = sprintf( ' $%.2f (p=%.3f)$', mean(data), pVal );
+			text( mean(data), y(2)*0.98, sprintf( '$%.2f$ ', mean(data) ), 'HorizontalAlignment', 'right', 'VerticalAlignment', 'top', 'FontSize', 18, 'interpreter', 'LaTex' );
+			text( mean(data), y(2)*0.98, sprintf( '\\ ($p=%.3f$)', pVal ), 'HorizontalAlignment', 'left', 'VerticalAlignment', 'top', 'FontSize', 18, 'interpreter', 'LaTex' );
+			
+			set( legend( '$p<=0.05$', '$p>0.05$' ), 'interpreter', 'LaTex' );
+			xlabel( 'Bootstrapped AUC' );
+			ylabel( 'Number of subjects' );
+			set( gca, 'xLim', [min(data)-0.015, max(data)+0.015], 'XTick', 0.29:0.03:0.8, 'FontSize', 20, 'LineWidth', 2, 'box', 'off' );
+			title( 'Area Under ROC', 'interpreter', 'LaTex' );
+
+
+			%% Panel labels
+			set( axes( 'position', [0 0 1 1] ), 'visible', 'off' );
+			text( 0.1, 0.97, 'A', 'color', 'k', 'fontsize', 22, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle', 'FontWeight', 'bold' );
+			text( 0.54, 0.97, 'B', 'color', 'k', 'fontsize', 22, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle', 'FontWeight', 'bold' );
+			text( 0.1, 0.485, 'C', 'color', 'k', 'fontsize', 22, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle', 'FontWeight', 'bold' );
+			text( 0.54, 0.485, 'D', 'color', 'k', 'fontsize', 22, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle', 'FontWeight', 'bold' );
+
+			h = findall(gcf,'type','axes');
+			uistack( h(2:end), 'top' );
+			set( h(1), 'layer', 'bottom' );
+
 		end
 
 
 		function FV_Power( withRamp, destFolder, w, rSlope, gainMin )
 			%  w:				total duration of a simulated blink in ms; 200 by default
+			%					UPDATE: now randomly sampled from population distribution out of real data
 			%  rSlope:			proportion/ratio of two slopes over total duration for a simulated blink; 0.2 by default
 			%  gainMin:			minimal gain during a simulated blink; 0 by default
 			
@@ -2339,9 +3028,10 @@ classdef BlinkTransient < handle
     		orientation = 0;
     		phase = 0;
     		wlPix = swPix ./ ( atand(swMm/2/sDist) * 2 * sf );
-    		contrast = 1;
+    		contrast = 0.1;
     		bgnLuminance = 128;
-    		img = ToolKit.Gabor( wlPix, orientation, phase, swPix, shPix, 'grating' )' * contrast;
+    		% img = ToolKit.Gabor( wlPix, orientation, phase, swPix, shPix, 'grating' )' * contrast;
+    		img = zeros(swPix,shPix);
 
     		tRamp = 1500; % ms
             tPlateau = 1000;    % ms
@@ -2358,6 +3048,12 @@ classdef BlinkTransient < handle
     		rfHPix = ceil( tand(rfHDeg/2) * 2 * sDist / shMm * shPix );
     		precision = rfWDeg / rfWPix;
     		rfLoc = round( ( [size(img)] - [rfWPix, rfHPix] ) / 2 ) - 1;	% bottom left point [x,y]
+
+    		% population blink RT and duration
+    		[~, populationRT, populationDur] = BlinkTransient.Supplementals20190527(2+4,'drift');
+    		populationRT( populationRT < 0 | populationRT > 2000 ) = [];
+    		populationRT = round(populationRT);
+    		populationDur = round(populationDur);
     		
 			FontSize = 24;
 			LineWidth = 2;
@@ -2366,22 +3062,29 @@ classdef BlinkTransient < handle
 				load( [destFolder, '\FV_Power_withRamp', num2str(withRamp), '.mat'] );
 			else
 				folders = dir( 'F:\FreeViewingDatabase\*FV.mat' );
-				Pop_L_FRs.Blink = ones(size(folders,1),T-100) * NaN;
-				Pop_L_FRs.NoBlink = ones(size(folders,1),T-100) * NaN;
-		        Pop_LN_FRs.Blink = ones(size(folders,1),T-100) * NaN;
-		        Pop_LN_FRs.NoBlink = ones(size(folders,1),T-100) * NaN;
-		        Pop_Power.Blink = zeros(1,size(folders,1));
-		        Pop_Power.NoBlink = zeros(1,size(folders,1));
+				nNeurons = 1;
+				Pop_L_FRs.Blink = ones(size(folders,1),T-100,nNeurons) * NaN;
+				Pop_L_FRs.NoBlink = ones(size(folders,1),T-100,nNeurons) * NaN;
+		        Pop_LN_FRs.Blink = ones(size(folders,1),T-100,nNeurons) * NaN;
+		        Pop_LN_FRs.NoBlink = ones(size(folders,1),T-100,nNeurons) * NaN;
+		        Pop_Power.Blink = zeros(size(folders,1),nNeurons);
+		        Pop_Power.NoBlink = zeros(size(folders,1),nNeurons);
+		        Pop_InputVar.Blink = cell(1,size(folders,1));
+		        Pop_InputVar.NoBlink = cell(1,size(folders,1));
 				for( iFolder = size(folders,1) : -1 : 1 )
 					fprintf( 'Processing %s...\n', folders(iFolder).name );
 					vt = load( fullfile( folders(iFolder).folder, folders(iFolder).name ), 'Trials' );
 					Trials = vt.Trials;
 					
 					rfImg = zeros(rfHPix, rfWPix, T);
+					InputVar.Blink = ones(size(Trials,2),nNeurons) * NaN;
+					InputVar.NoBlink = ones(size(Trials,2),nNeurons) * NaN;
 		    		L_FRs.Blink = ones(size(Trials,2),T) * NaN;
 		    		L_FRs.NoBlink = ones(size(Trials,2),T) * NaN;
 		            LN_FRs.Blink = ones(size(Trials,2),T) * NaN;
 		            LN_FRs.NoBlink = ones(size(Trials,2),T) * NaN;
+
+		            nSaveLumSample = 0;
 					for( iTrial = 1:size(Trials,2) )
 						% get eye drift
 						x = zeros( 1, sum([Trials(iTrial).drifts.duration]) );
@@ -2430,82 +3133,139 @@ classdef BlinkTransient < handle
 						x = x - mean(x);
 						y = y - mean(y);
 
+						% figure(100);
+						% plot( [x; y]' ); hold on;
+						% continue;
+
 						% convert to pixels
 						x = round( sDist * tand(x/60) / swMm * swPix );
 						y = round( sDist * tand(y/60) / shMm * shPix );
 
-						%% NoBlink condition
-						Bt = ones(1,T);
-						for( t = 1 : T )
-							rfImg(:,:,t) = ( img( (1:rfWPix) + rfLoc(1) + x(t), (1:rfHPix) + rfLoc(2) + y(t) )' * Gt(t) + bgnLuminance ) * Bt(t);
-						end
-						% linearity
-						[fRate, fRate_C, fRate_S] = RGC.SpatioLinearModel( rfImg, precision, round(rfWPix/2), round(rfHPix/2), 'm', 25 );
-		                L_FRs.NoBlink(iTrial,:) = RGC.TemporalLinearModel( fRate, 'm', 'on' );;
-			    		% Non-linearity: sigmoid
-			    		K = 30;	% peak firing rate
-			    		g = 1;	% gain, which modulates the slope of the S-curve
-			    		thresh = 0;%60;%0.2;
-			    		% LN_FRs.NoBlink(iTrial,:) = K ./ ( 1 + exp( -g * (L_FRs.NoBlink(iTrial,:) - thresh) ) );
-			    		base = 10;	% baseline activity
-			    		LN_FRs.NoBlink(iTrial,:) = max( L_FRs.NoBlink(iTrial,:) + base, 0 );
+						% blink RT and duration
+						blinkRT = populationRT( randi( size(populationRT,2), 1, 1 ) );
+						blinkDur = populationDur( randi( size(populationDur,2), 1, 1 ) );
 
-			    		%% Blink condition
-			    		Bt = ones(1,T);
-						offset = 0;%randi(501) - 251;
-						Bt( (1:w) + (end-w)/2 + offset ) = gainMin;
-						down = w*rSlope/2;
-						Bt( (1:down) + (end-w)/2 + offset ) = 1 - (1:down)/down * (1-gainMin);
-						up = w*rSlope/2;
-						Bt( ( w : -1 : w-up+1 ) + (end-w)/2 + offset ) = 1 - (1:up)/up * (1-gainMin);
-						for( t = 1 : T )
-							rfImg(:,:,t) = ( img( (1:rfWPix) + rfLoc(1) + x(t), (1:rfHPix) + rfLoc(2) + y(t) )' * Gt(t) + bgnLuminance ) * Bt(t);
-						end
-						% linearity
-						[fRate, fRate_C, fRate_S] = RGC.SpatioLinearModel( rfImg, precision, round(rfWPix/2), round(rfHPix/2), 'm', 25 );
-		                L_FRs.Blink(iTrial,:) = RGC.TemporalLinearModel( fRate, 'm', 'on' );;
-			    		% Non-linearity: sigmoid
-			    		K = 30;	% peak firing rate
-			    		g = 1;	% gain, which modulates the slope of the S-curve
-			    		thresh = 0;%60;%0.2;
-			    		% LN_FRs.Blink(iTrial,:) = K ./ ( 1 + exp( -g * (L_FRs.Blink(iTrial,:) - thresh) ) );
-			    		LN_FRs.Blink(iTrial,:) = max( L_FRs.Blink(iTrial,:) + base, 0 );
-			    		LN_FRs.Blink( iTrial, LN_FRs.Blink(iTrial,:) > 300 ) = 300;
+						for( iNeuron = nNeurons : -1 : 1 )
+							phase = -pi + 2*pi/nNeurons*iNeuron;
+							img = ToolKit.Gabor( wlPix, orientation, phase, swPix, shPix, 'grating' )' * contrast * bgnLuminance;
+
+							%% NoBlink condition
+							Bt = ones(1,T);
+							for( t = 1 : T )
+								rfImg(:,:,t) = ( img( (1:rfWPix) + rfLoc(1) + x(t), (1:rfHPix) + rfLoc(2) + y(t) )' * Gt(t) + bgnLuminance ) * Bt(t);
+							end
+							if( nSaveLumSample < 2 )
+								if( nSaveLumSample == 0 )
+									figure( 'NumberTitle', 'off', 'name', [folders(iFolder).name(1:end-4), ': Luminance Sample'], 'color', 'w' ); hold on;
+								end
+								plot( BlinkTransient.Intensity2Luminance( reshape( rfImg( round( (size(rfImg,1)-1)/2 ), round( (size(rfImg,2)-1)/2 ), : ), 1, [] ) ), 'b', 'tag', ['noBlink:' num2str(nSaveLumSample)], 'LineWidth', 2 );
+							end
+							InputVar.NoBlink(iTrial,iNeuron) = var( mean( reshape(rfImg,[],T), 1 ) );
+							% linearity
+							[fRate, fRate_C, fRate_S] = RGC.SpatioLinearModel( rfImg, precision, round(rfWPix/2), round(rfHPix/2), 'm', 25 );
+			                L_FRs.NoBlink(iTrial,:,iNeuron) = RGC.TemporalLinearModel( fRate, 'm', 'on' );;
+				   %  		% Non-linearity: sigmoid
+				   %  		K = 30;	% peak firing rate
+				   %  		g = 1;	% gain, which modulates the slope of the S-curve
+				   %  		thresh = 0;%60;%0.2;
+				   %  		% LN_FRs.NoBlink(iTrial,:,iNeuron) = K ./ ( 1 + exp( -g * (L_FRs.NoBlink(iTrial,:,iNeuron) - thresh) ) );
+				    		base = 10;	% baseline activity
+				    		LN_FRs.NoBlink(iTrial,:,iNeuron) = max( L_FRs.NoBlink(iTrial,:,iNeuron) + base, 0 );
+
+				    		%% Blink condition
+				    		Bt = ones(1,T);
+							% offset = 0;%randi(501) - 251;
+							Bt( (1:blinkDur) + blinkRT-1 ) = gainMin;
+							down = blinkDur*rSlope/2;
+							Bt( (1:down) + blinkRT-1 ) = 1 - (1:down)/down * (1-gainMin);
+							up = blinkDur*rSlope/2;
+							Bt( ( blinkDur : -1 : blinkDur-up+1 ) + blinkRT-1 ) = 1 - (1:up)/up * (1-gainMin);
+							for( t = 1 : T )
+								rfImg(:,:,t) = ( img( (1:rfWPix) + rfLoc(1) + x(t), (1:rfHPix) + rfLoc(2) + y(t) )' * Gt(t) + bgnLuminance ) * Bt(t);
+							end
+							if( nSaveLumSample < 2 )
+								plot( BlinkTransient.Intensity2Luminance( reshape( rfImg( round( (size(rfImg,1)-1)/2 ), round( (size(rfImg,2)-1)/2 ), : ), 1, [] ) ), 'r', 'tag', ['blink:' num2str(nSaveLumSample)], 'LineWidth', 2 );
+								nSaveLumSample = nSaveLumSample + 1;
+								if( nSaveLumSample == 2 )
+									saveas( gcf, [ destFolder, '\Luminance_Sample_', folders(iFolder).name(1:end-4), '_withRamp', num2str(withRamp), '_contrast', num2str(contrast) '.fig' ] );
+									saveas( gcf, [ destFolder, '\Luminance_Sample_', folders(iFolder).name(1:end-4), '_withRamp', num2str(withRamp), '_contrast', num2str(contrast) '.png' ] );
+									close(gcf);
+								end
+							end
+							InputVar.Blink(iTrial,iNeuron) = var( mean( reshape(rfImg,[],T), 1 ) );
+							% linearity
+							[fRate, fRate_C, fRate_S] = RGC.SpatioLinearModel( rfImg, precision, round(rfWPix/2), round(rfHPix/2), 'm', 25 );
+			                L_FRs.Blink(iTrial,:,iNeuron) = RGC.TemporalLinearModel( fRate, 'm', 'on' );
+				   %  		% Non-linearity: sigmoid
+				   %  		K = 30;	% peak firing rate
+				   %  		g = 1;	% gain, which modulates the slope of the S-curve
+				   %  		thresh = 0;%60;%0.2;
+				   %  		% LN_FRs.Blink(iTrial,:,iNeuron) = K ./ ( 1 + exp( -g * (L_FRs.Blink(iTrial,:,iNeuron) - thresh) ) );
+				    		LN_FRs.Blink(iTrial,:,iNeuron) = max( L_FRs.Blink(iTrial,:,iNeuron) + base, 0 );
+				    		LN_FRs.Blink( iTrial, LN_FRs.Blink(iTrial,:,iNeuron) > 300, iNeuron ) = 300;
+				    	end
 
 					end
-					L_FRs.NoBlink( isnan(L_FRs.NoBlink(:,1)), : ) = [];
-					LN_FRs.NoBlink( isnan(LN_FRs.NoBlink(:,1)), : ) = [];
-					L_FRs.Blink( isnan(L_FRs.Blink(:,1)), : ) = [];
-					LN_FRs.Blink( isnan(LN_FRs.Blink(:,1)), : ) = [];
-					L_FRs.NoBlink( :, 1:100 ) = [];
-					LN_FRs.NoBlink( :, 1:100 ) = [];
-					L_FRs.Blink( :, 1:100 ) = [];
-					LN_FRs.Blink( :, 1:100 ) = [];
+					InputVar.NoBlink( isnan(InputVar.Blink(:,1)), : ) = [];
+					InputVar.Blink( isnan(InputVar.Blink(:,1)), : ) = [];
+					L_FRs.NoBlink( isnan(L_FRs.NoBlink(:,1,:)), :, : ) = [];
+					LN_FRs.NoBlink( isnan(LN_FRs.NoBlink(:,1,:)), :, : ) = [];
+					L_FRs.Blink( isnan(L_FRs.Blink(:,1,:)), :, : ) = [];
+					LN_FRs.Blink( isnan(LN_FRs.Blink(:,1,:)), :, : ) = [];
+					L_FRs.NoBlink( :, 1:100, : ) = [];
+					LN_FRs.NoBlink( :, 1:100, : ) = [];
+					L_FRs.Blink( :, 1:100, : ) = [];
+					LN_FRs.Blink( :, 1:100, : ) = [];
 
 					Power.NoBlink = var( LN_FRs.NoBlink, 0, 2 );
 					Power.Blink = var( LN_FRs.Blink, 0, 2 );
 
-					ShowFigure( folders(iFolder).name, L_FRs, LN_FRs, Power );
-					saveas( gcf, [ destFolder, '\FV_Power_', folders(iFolder).name(1:end-4), '_withRamp', num2str(withRamp), '.fig' ] );
-					saveas( gcf, [ destFolder, '\FV_Power_', folders(iFolder).name(1:end-4), '_withRamp', num2str(withRamp), '.png' ] );
+					t_L_FRs.NoBlink = mean( L_FRs.NoBlink, 3 );
+					t_L_FRs.Blink = mean( L_FRs.Blink, 3 );
+					t_LN_FRs.NoBlink = mean( LN_FRs.NoBlink, 3 );
+					t_LN_FRs.Blink = mean( LN_FRs.Blink, 3 );
+					t_Power.NoBlink = mean( Power.NoBlink, 3 );
+					t_Power.Blink = mean( Power.Blink, 3 );
+					ShowFigure( folders(iFolder).name, t_L_FRs, t_LN_FRs, t_Power );
+					saveas( gcf, [ destFolder, '\FV_Power_', folders(iFolder).name(1:end-4), '_withRamp', num2str(withRamp), '_contrast', num2str(contrast) '.fig' ] );
+					saveas( gcf, [ destFolder, '\FV_Power_', folders(iFolder).name(1:end-4), '_withRamp', num2str(withRamp), '_contrast', num2str(contrast) '.png' ] );
 					close(gcf);
 					
-					Pop_L_FRs.Blink(iFolder,:) = mean( L_FRs.Blink, 1 );
-					Pop_L_FRs.NoBlink(iFolder,:) = mean( L_FRs.NoBlink, 1 );
-			        Pop_LN_FRs.Blink(iFolder,:) = mean( LN_FRs.Blink, 1 );
-					Pop_LN_FRs.NoBlink(iFolder,:) = mean( LN_FRs.NoBlink, 1 );
-					Pop_Power.Blink(iFolder) = mean(Power.Blink);
-					Pop_Power.NoBlink(iFolder) = mean(Power.NoBlink);
+					Pop_InputVar.Blink{iFolder} = InputVar.Blink;
+					Pop_InputVar.NoBlink{iFolder} = InputVar.NoBlink;
+					Pop_L_FRs.Blink(iFolder,:,:) = mean( L_FRs.Blink, 1 );
+					Pop_L_FRs.NoBlink(iFolder,:,:) = mean( L_FRs.NoBlink, 1 );
+			        Pop_LN_FRs.Blink(iFolder,:,:) = mean( LN_FRs.Blink, 1 );
+					Pop_LN_FRs.NoBlink(iFolder,:,:) = mean( LN_FRs.NoBlink, 1 );
+					Pop_Power.Blink(iFolder,:) = mean( Power.Blink, 1 );
+					Pop_Power.NoBlink(iFolder,:) = mean( Power.NoBlink, 1 );
+
+					All_L_FRs.Blink{iFolder} = L_FRs.Blink;
+					All_L_FRs.NoBlink{iFolder} = L_FRs.NoBlink;
+					All_LN_FRs.Blink{iFolder} = LN_FRs.Blink;
+					All_LN_FRs.NoBlink{iFolder} = LN_FRs.NoBlink;
+					All_Power.Blink{iFolder} = Power.Blink;
+					All_Power.NoBlink{iFolder} = Power.NoBlink;
 
 				end
+				FV_Power.Pop_InputVar = Pop_InputVar;
 				FV_Power.Pop_L_FRs = Pop_L_FRs;
 				FV_Power.Pop_LN_FRs = Pop_LN_FRs;
-				FV_Power.Power = Pop_Power;
-				save( [destFolder, '\FV_Power_withRamp', num2str(withRamp), '.mat'], 'FV_Power' );
+				FV_Power.Pop_Power = Pop_Power;
+				FV_Power.All_L_FRs = All_L_FRs;
+				FV_Power.All_LN_FRs = All_LN_FRs;
+				FV_Power.All_Power = All_Power;
+				save( [destFolder, '\FV_Power_withRamp', num2str(withRamp), '_contrast', num2str(contrast) '.mat'], 'FV_Power' );
 			end
-			ShowFigure( 'Population', FV_Power.Pop_L_FRs, FV_Power.Pop_LN_FRs, FV_Power.Power );
-			saveas( gcf, [ destFolder, '\FV_Power_Population_withRamp', num2str(withRamp), '.fig' ] );
-			saveas( gcf, [ destFolder, '\FV_Power_Population_withRamp', num2str(withRamp), '.png' ] );
+			t_FV_Power.Pop_L_FRs.Blink = mean( FV_Power.Pop_L_FRs.Blink, 3 );
+			t_FV_Power.Pop_L_FRs.NoBlink = mean( FV_Power.Pop_L_FRs.NoBlink, 3 );
+			t_FV_Power.Pop_LN_FRs.Blink = mean( FV_Power.Pop_LN_FRs.Blink, 3 );
+			t_FV_Power.Pop_LN_FRs.NoBlink = mean( FV_Power.Pop_LN_FRs.NoBlink, 3 );
+			t_FV_Power.Pop_Power.Blink = mean( FV_Power.Pop_Power.Blink, 2 )';
+			t_FV_Power.Pop_Power.NoBlink = mean( FV_Power.Pop_Power.NoBlink, 2 )';
+			ShowFigure( 'Population', t_FV_Power.Pop_L_FRs, t_FV_Power.Pop_LN_FRs, t_FV_Power.Pop_Power );
+			saveas( gcf, [ destFolder, '\FV_Power_Population_withRamp', num2str(withRamp), '_contrast', num2str(contrast) '.fig' ] );
+			saveas( gcf, [ destFolder, '\FV_Power_Population_withRamp', num2str(withRamp), '_contrast', num2str(contrast) '.png' ] );
 
 			function ShowFigure( name, L_FRs, LN_FRs, Power )
 				set( figure, 'NumberTitle', 'off', 'name', sprintf( '%s | FR & Power Based on FreeViewing Data | withRamp:%d | w:%d | rSlope:%.2f | gainMin:%.2f', name, withRamp, w, rSlope, gainMin ), 'color', 'w' );
@@ -2518,7 +3278,7 @@ classdef BlinkTransient < handle
 				m = mean( L_FRs.NoBlink, 1 );
 				sd = std( L_FRs.NoBlink, 0, 1 );
 				plot( 0:T-100-1, m, 'color', 'b', 'LineWidth', LineWidth );
-				fill( [ 0:T-100-1, T-100-1:-1:0 ], [m-sd, m(end:-1:1)+sd], 'b', 'LineStyle', 'none', 'FaceColor', 'b', 'FaceAlpha', 0.5 );
+				fill( [ 0:T-100-1, T-100-1:-1:0 ], [m-sd, m(end:-1:1)+sd(end:-1:1)], 'b', 'LineStyle', 'none', 'FaceColor', 'b', 'FaceAlpha', 0.5 );
 				set( gca, 'xLim', [0 T], 'YLim', [-20 20], 'YTick', [-20, 0, 20], 'FontSize', FontSize, 'LineWidth', LineWidth );
 				ylabel('Linear Response');
 				title('NoBlink Condition');
@@ -2527,7 +3287,7 @@ classdef BlinkTransient < handle
 				m = mean( L_FRs.Blink, 1 );
 				sd = std( L_FRs.Blink, 0, 1 );
 				plot( 0:T-100-1, m, 'color', 'r', 'LineWidth', LineWidth );
-				fill( [ 0:T-100-1, T-100-1:-1:0 ], [m-sd, m(end:-1:1)+sd], 'r', 'LineStyle', 'none', 'FaceColor', 'r', 'FaceAlpha', 0.5 );
+				fill( [ 0:T-100-1, T-100-1:-1:0 ], [m-sd, m(end:-1:1)+sd(end:-1:1)], 'r', 'LineStyle', 'none', 'FaceColor', 'r', 'FaceAlpha', 0.5 );
 				set( gca, 'xLim', [0 T], 'YLim', [-20 20], 'YTick', [-20, 0, 20], 'FontSize', FontSize, 'LineWidth', LineWidth );
 				title('Blink Condition')
 
@@ -2535,7 +3295,7 @@ classdef BlinkTransient < handle
 				m = mean( LN_FRs.NoBlink, 1 );
 				sd = std( LN_FRs.NoBlink, 0, 1 );
 				plot( 0:T-100-1, m, 'color', 'b', 'LineWidth', LineWidth );
-				fill( [ 0:T-100-1, T-100-1:-1:0 ], [m-sd, m(end:-1:1)+sd], 'b', 'LineStyle', 'none', 'FaceColor', 'b', 'FaceAlpha', 0.5 );
+				fill( [ 0:T-100-1, T-100-1:-1:0 ], [m-sd, m(end:-1:1)+sd(end:-1:1)], 'b', 'LineStyle', 'none', 'FaceColor', 'b', 'FaceAlpha', 0.5 );
 				set( gca, 'xLim', [0 T], 'YLim', [0 50], 'FontSize', FontSize, 'LineWidth', LineWidth );
 				xlabel('Time (ms)');
 				ylabel('Linear-NonLinear Response');
@@ -2544,7 +3304,7 @@ classdef BlinkTransient < handle
 				m = mean( LN_FRs.Blink, 1 );
 				sd = std( LN_FRs.Blink, 0, 1 );
 				plot( 0:T-100-1, m, 'color', 'r', 'LineWidth', LineWidth );
-				fill( [ 0:T-100-1, T-100-1:-1:0 ], [m-sd, m(end:-1:1)+sd], 'r', 'LineStyle', 'none', 'FaceColor', 'r', 'FaceAlpha', 0.5 );
+				fill( [ 0:T-100-1, T-100-1:-1:0 ], [m-sd, m(end:-1:1)+sd(end:-1:1)], 'r', 'LineStyle', 'none', 'FaceColor', 'r', 'FaceAlpha', 0.5 );
 				set( gca, 'xLim', [0 T], 'YLim', [0 50], 'FontSize', FontSize, 'LineWidth', LineWidth );
 				xlabel('Time (ms)');
 
@@ -2570,11 +3330,288 @@ classdef BlinkTransient < handle
 		end
 
 
-		function FV_PSD_V2( withRamp, destFolder )
+		function [u_nbTPower, u_bTPower, w_nbTPower, w_bTPower, pVals, tFreqs, pVal_individuals] = FV_PSD_Figure()
+			swPix = 1366;%2560;	% screen width in pixels
+			swMm = 600;		% screen width in mm
+			shPix = 768;%1440;	% screen height in pixels
+			shMm = 335;		% screen height in mm
+			sDist = 1605;%1190;	% distance from screen to subject's eye in mm
+
+			% uiopen('F:\BlinkTransient\Reports\2020.04.13\FV_PSD_FVData\Drifts_DaveFV_withRamp1.fig',1);
+			uiopen('F:\BlinkTransient\Reports\2020.05.14\PSD_MainExp_MedianParams2\Drifts_A001_withRamp1.fig',1);
+			subplot(2,1,1);
+			h = get( gca, 'children' );
+			x10 = h(22).YData;
+			y10 = h(21).YData;
+			x20 = h(20).YData;
+			y20 = h(19).YData;
+			close(gcf);
+
+			% convert to pixels
+			x10 = sDist * tand(x10/60) / swMm * swPix;
+			y10 = sDist * tand(y10/60) / shMm * shPix;
+			x20 = sDist * tand(x20/60) / swMm * swPix;
+			y20 = sDist * tand(y20/60) / shMm * shPix;
+			x1 = x10; %round(x10);
+			y1 = y10; %round(y10);
+			x2 = x20; %round(x20);
+			y2 = y20; %round(y20);
+			T = size(x1,2);
+
+			contrast = 1;0.4;
+			bk = BlinkTransient.Intensity2Luminance(128);
+			Gt = [(0:1499)/1499, ones(1,T-1500) ];
+			SF = 3;
+			wlPix = swPix ./ ( atand( swMm/2 / sDist ) * 2 * SF );	% wave length for 3 cpd
+			rRF = 0.1;		% radius of the RF in deg
+			wRF = round( sDist * tand(rRF) / swMm * swPix * 2 );	% diameter of RF in pixel
+			img = ToolKit.Gabor( wlPix, 45, 0, swPix, swPix, 'grating' )' * bk * contrast;
+			
+			bMov = zeros(wRF,wRF,T);
+			nbMov = zeros(wRF,wRF,T);
+			index = (1:wRF) + round((swPix-wRF)/2);
+			for( t = 1 : T )
+				nbMov(:,:,t) = interp2( 1:swPix, 1:swPix, img, index+x1(t), index'+y1(t) ) * Gt(t) + bk;
+				% nbMov(:,:,t) = img( index+x1(t), index+y1(t) ) * Gt(t) + bk;
+				if( 1300 <= t && t < 1450 )
+					bMov(:,:,t) = bk;
+				else
+					bMov(:,:,t) = interp2( 1:swPix, 1:swPix, img, index+x2(t), index'+y2(t) ) * Gt(t) + bk;
+					% bMov(:,:,t) = img( index+x2(t), index+y2(t) ) * Gt(t) + bk;
+				end
+				% subplot(1,2,1);
+				% imshow(nbMov(:,:,t)); title(num2str(t));
+				% subplot(1,2,2);
+				% imshow(bMov(:,:,t));
+				% pause(0.001)
+			end
+			% nbMov = reshape( BlinkTransient.Intensity2Luminance(nbMov(:)'), wRF, wRF, T );
+			% bMov = reshape( BlinkTransient.Intensity2Luminance(bMov(:)'), wRF, wRF, T );
+
+			set( figure, 'NumberTitle', 'off', 'name', 'Modeling', 'color', 'w' );
+			clf;
+
+			% grating with example eye traces
+			subplot(2,2,1);cla;
+			imshow(img(1:121,1:121),[]); hold on;
+			plot( x10-x10(1)+61, y10-y10(1)+61, 'b', 'LineWidth', 2 );
+			plot( x20-x20(1)+61, y20-y20(1)+61, 'r', 'LineWidth', 2 );
+			tick = round( sDist * tand((-60:30:60)/60) / swMm * swPix ) + 61;
+			ticklabel = eval( ['{', sprintf( '''%d'' ', -60:30:60 ), '}' ] );
+			set( gca, 'visible', 'on', 'ydir', 'normal', 'xtick', tick, 'xticklabel', ticklabel, 'ytick', tick, 'YTickLabel', ticklabel, 'FontSize', 20, 'xcolor', 'k', 'ycolor', 'k', 'LineWidth', 2 );
+			xlabel('Horizontal position (arc min)');
+			ylabel('Vertical position (arc min)');
+
+			%% example luminance profiles
+			subplot(2,2,2);cla; hold on;
+			plot( 0 : T-1, mean( reshape(nbMov,[],T), 1 ), 'b-', 'LineWidth', 2, 'DisplayName', 'No Blink' );
+			plot( 0 : T-1, mean( reshape(bMov,[],T), 1 ), 'r-', 'LineWidth', 2, 'DisplayName', 'Simulated Blink' );
+			legend;
+			% set( gca, 'ylim', [-0.2 6], 'FontSize', 20, 'xcolor', 'k', 'ycolor', 'k', 'LineWidth', 2 );
+			set( gca, 'FontSize', 20, 'xcolor', 'k', 'ycolor', 'k', 'LineWidth', 2 );
+			xlabel('Time (ms)');
+			ylabel('Luminance (cd/m^2)');
+
+
+			%% PSD
+			% load('F:\BlinkTransient\Reports\2020.04.13\FV_PSD_FVData_RandBlinks_contrast0.4_Hs0.98\PSD_FV_withRamp1.mat');
+			% load('F:\BlinkTransient\Reports\2020.05.14\PSD_MainExp_MedianParams2\PSD_MainExp_withRamp1.mat');		%% old figure in manuscript
+			% load('F:\BlinkTransient\Reports\2020.08.15\PSD_MainExp, withRamp, Radial Average [0,0.1,2]pi, Qrad_fft2\PSD_MainExp_withRamp1.mat');
+			% load('F:\BlinkTransient\Reports\2020.08.15\PSD_MainExp, withRamp, Radial Average [0,0.1,2]pi, Qrad_Welch\PSD_MainExp_withRamp1.mat');
+			load('F:\BlinkTransient\Reports\2020.08.15\PSD_MainExp, withRamp, Trial Grating Orientation, Qrad_fft2\PSD_MainExp_withRamp1.mat');		%% current figure in manuscript
+			% load('F:\BlinkTransient\Reports\2020.08.15\PSD_MainExp, withRamp, Trial Grating Orientation, Qrad_Welch\PSD_MainExp_withRamp1.mat');
+			% load('F:\BlinkTransient\Reports\2020.08.15\PSD_MainExp, withRamp, Trial Grating Orientation, Qrad_fft2, Static VS Drift+Blink\PSD_MainExp_withRamp1.mat');
+			load('F:\BlinkTransient\Reports\2020.08.15\PSD_MainExp, withRamp, Trial Grating Orientation, Qrad_fft2\Individuals\PSD_Individual_MainExp_withRamp1.mat');		%% current figure in manuscript
+			tFreqs = PSD_FV.tFreqs;
+			i3 = find( PSD_FV.sFreqs == 3, 1, 'first' );
+			nbTPower = reshape( sum( PSD_FV.PS_D([ i3],:,:), 1 ), size(PSD_FV.PS_D,2), [] );
+			bTPower = reshape( sum( PSD_FV.PS_DB([ i3],:,:), 1 ), size(PSD_FV.PS_DB,2), [] );
+			pVals = zeros(size(PSD_FV.tFreqs));
+			for( iP = 1 : size(pVals,2) )
+				[~, pVals(iP)] = ttest( nbTPower(iP,:), bTPower(iP,:) );
+			end
+			subplot(2,2,3); hold on; h = [];
+			% [ax, h1, h2] = plotyy(0,0,0,0); h1.delete(); h2.delete(); set( ax, 'nextplot', 'add' );
+			index = find( PSD_FV.tFreqs <= 30 & PSD_FV.tFreqs > 0 );
+			m = mean( nbTPower(index,:), 2 )';
+			sd = std( nbTPower(index,:), 0, 2 )' / sqrt(size(nbTPower,2));
+			h(1) = plot( PSD_FV.tFreqs(index), log10(m), 'b-', 'LineWidth', 2, 'DisplayName', 'No Blink' );
+			fill( [PSD_FV.tFreqs(index), PSD_FV.tFreqs(index(end:-1:1))], log10( [m+sd, m(end:-1:1)-sd(end:-1:1)] ), 'b', 'LineStyle', 'none', 'FaceAlpha', 0.6 );
+			m = mean( bTPower(index,:), 2 )';
+			sd = std( bTPower(index,:), 0, 2 )' / sqrt(size(bTPower,2));
+			h(2) = plot( PSD_FV.tFreqs(index), log10(m), 'r-', 'LineWidth', 2, 'DisplayName', 'Blink' );
+			fill( [PSD_FV.tFreqs(index), PSD_FV.tFreqs(index(end:-1:1))], log10( [m+sd, m(end:-1:1)-sd(end:-1:1)] ), 'r', 'LineStyle', 'none', 'FaceAlpha', 0.6 );
+			m(pVals(index)>=0.05) = NaN;
+			h(3) = plot( tFreqs(index), log10(m), 'k', 'LineWidth', 2, 'DisplayName', 'p < 0.05' );
+			
+			% h(2) = plot( PSD_FV.tFreqs, log10(m), 'r-', 'LineWidth', 2, 'DisplayName', 'Simulated Blink' );
+			% fill( [PSD_FV.tFreqs(2:end), PSD_FV.tFreqs(end:-1:2)], log10( [m(2:end)+sd(2:end), m(end:-1:2)-sd(end:-1:2)] ), 'r', 'LineStyle', 'none', 'FaceAlpha', 0.6 );
+			set( gca, 'xlim', [0.3 40], 'xtick', 10.^(0:2), 'xticklabel', {'1','10','100'}, 'XScale', 'log', 'ylim', [-8 -3.6], 'YScale', 'linear', 'FontSize', 20, 'LineWidth', 2, 'xcolor', 'k', 'ycolor', 'k' );
+			xlabel('Temporal frequency (Hz)');
+			ylabel('Power (dB)');
+
+			% axes( 'position', get(gca,'position'), 'visible', 'off' );
+			% h(3) = plot( ax(2), PSD_FV.tFreqs, PSD_FV.mCellGain, 'k', 'LineWidth', 2, 'DisplayName', 'M cell' );
+			% set( ax(2), 'XLim', [0.3 600], 'ylim', [10^-20,10^5], 'xtick', 10.^(0:2), 'ytick', 10.^(-20:5:5), 'XScale', 'log', 'YScale', 'log', 'FontSize', 20, 'LineWidth', 2, 'xcolor', 'k', 'ycolor', 'k' );
+			legend(h);
+
+			k = find( PSD_FV.tFreqs >= 60, 1, 'first' );
+			u_nbTPower = sum( nbTPower(2:k,:) * diff(PSD_FV.tFreqs(1:2)), 1 );
+			u_bTPower = sum( bTPower(2:k,:) * diff(PSD_FV.tFreqs(1:2)), 1 );
+
+			%% weighted temporal power
+			subplot(2,2,4); hold on;
+			mCellGain = PSD_FV.mCellGain(2:end)';
+			mCellGain = RGC.TemporalFreqGainProfile( PSD_FV.tFreqs(1:end), 'm', 'on', false )';
+			humanGain = HumanStabilized_Temporal( PSD_FV.tFreqs(1:end), SF, 'Freq')';	% stabilized, from Kelly, Motion and vision II, 1979
+			humanGain(1:2) = 0;
+			[~,humanGain,w] = human_Temporal_Watson(1251);	% from Watson, Temporal sensitivity, 1986; w should be equal to PSD_FV.tFreqs
+			w_nbTPower = sum( nbTPower(1:end,:) .* repmat( humanGain', 1, size(nbTPower,2) ) * diff(PSD_FV.tFreqs(1:2)), 1 );
+			w_bTPower = sum( bTPower(1:end,:) .* repmat( humanGain', 1, size(bTPower,2) ) * diff(PSD_FV.tFreqs(1:2)), 1 );
+
+			m1 = mean(w_nbTPower);
+			sd1 = std(w_nbTPower) / sqrt(size(w_nbTPower,2));
+			% bar( 1, 10*log10(m1), 1, 'b', 'LineStyle', 'none' );
+			% plot( [1 1], 10*log10( [m1-sd1, m1+sd1] ), 'k', 'LineWidth', 2 );
+
+			m2 = mean(w_bTPower);
+			sd2 = std(w_bTPower) / sqrt(size(w_nbTPower,2));
+			% bar( 3, 10*log10(m2), 1, 'r', 'LineStyle', 'none' );
+			% plot( [3 3], 10*log10( [m2-sd2, m2+sd2] ), 'k', 'LineWidth', 2 );
+
+			for( i = 1 : size(w_nbTPower,2) )
+				plot( [1 3], 10*log10( [ w_nbTPower(i), w_bTPower(i) ] ), '--', 'MarkerSize', 10, 'LineWidth', 2, 'color', [0.5 0.5 0.5] );
+				plot( 1, 10*log10(w_nbTPower(i)), '^', 'MarkerSize', 10, 'LineWidth', 2, 'color', [0.7 0.7 1] );
+				plot( 3, 10*log10(w_bTPower(i)), '^', 'MarkerSize', 10, 'LineWidth', 2, 'color', [1 0.7 0.7] );
+			end
+			plot( [1 3], 10*log10([m1, m2]), '-', 'MarkerSize', 12, 'LineWidth', 2, 'color', 'k' );
+			plot( 1, 10*log10(m1), 's', 'MarkerSize', 12, 'LineWidth', 4, 'color', 'b' );
+			plot( 3, 10*log10(m2), 's', 'MarkerSize', 12, 'LineWidth', 4, 'color', 'r' );
+			plot( [1 1 NaN 3 3], 10*log10( [ [-1 1] * sd1 + m1, NaN, [-1 1] * sd2 + m2 ] ), '-', 'LineWidth', 2, 'color', 'k' );
+			set( gca, 'XLim', [0 4], 'LineWidth', 2, 'XTick', [1 3], 'XTickLabel', {'No Blink', 'Blink'}, 'FontSize', 20 );
+
+
+			[~, p] = ttest( w_nbTPower, w_bTPower )
+			set( ToolKit.ShowSignificance( [1, 10*log10(m1+sd1)], [3, 10*log10(m2+sd2)], p, -0.1, true, 'FontSize', 24 ), 'LineWidth', 2 );
+			set( gca, 'XLim', [-0.3 4.3], 'YLim', [-31 -21], 'xtick', [1 3], 'XTickLabel', {'No Blink', 'Simulated Blink'}, 'fontsize', 20, 'LineWidth', 2, 'xcolor', 'k', 'ycolor', 'k' );
+			pos = get( gca, 'position' ); set( gca, 'position', [pos(1:2), 0.2, pos(4)] );
+			ylabel('Weighted temporal power (dB)');
+
+			figure;
+			for( i = 1 : 11 )
+				subplot(3,4,i);
+				imshow( img( (1:60) + round( wlPix*sqrt(2)*(i-1)/11 ), (1:60) ), [] );
+			end
+			subplot(3,4,12)
+			imshow( zeros(60,60) );
+
+			% for individual sbjs
+			for(iSbj = 1 : size(PSD_FV_Indivisual, 2))
+				[~, pVal_individuals(iSbj)] = ttest2(PSD_FV_Indivisual(iSbj).PS_DB * humanGain', PSD_FV_Indivisual(iSbj).PS_D * humanGain', 'tail', 'right');
+			end
+
+		end
+
+
+		function FV_PSD_Eg()
+			swPix = 1366;%2560;	% screen width in pixels
+			swMm = 600;		% screen width in mm
+			shPix = 768;%1440;	% screen height in pixels
+			shMm = 335;		% screen height in mm
+			sDist = 1605;%1190;	% distance from screen to subject's eye in mm
+
+			uiopen('F:\BlinkTransient\Reports\2020.04.13\FV_PSD_FVData\Drifts_DaveFV_withRamp1.fig',1);
+			h = get( gca, 'children' );
+			x100 = h(8).YData;
+			y100 = h(7).YData;
+			x200 = h(18).YData;
+			y200 = h(17).YData;
+			x100 = x200;
+			y100 = y200;
+			close(gcf);
+
+			% convert to pixels
+			x10 = sDist * tand(x100/60) / swMm * swPix;
+			y10 = sDist * tand(y100/60) / shMm * shPix;
+			x20 = sDist * tand(x200/60) / swMm * swPix;
+			y20 = sDist * tand(y200/60) / shMm * shPix;
+			x1 = x10; %round(x10);
+			y1 = y10; %round(y10);
+			x2 = x20; %round(x20);
+			y2 = y20; %round(y20);
+			T = size(x1,2);
+
+			set( figure, 'NumberTitle', 'off', 'name', 'Modeling', 'color', 'w' );
+			clf;
+
+			SFs = [0.3 3 10];
+			for( iSF = 1 : size(SFs,2) );
+				SF = SFs(iSF);
+
+				contrast = 1;0.4;
+				bk = BlinkTransient.Intensity2Luminance(128);
+				Gt = [(0:1499)/1499, ones(1,T-1500) ];
+				
+				wlPix = swPix ./ ( atand( swMm/2 / sDist ) * 2 * SF );	% wave length for 3 cpd
+				rRF = 0.1;		% radius of the RF in deg
+				wRF = 1;%round( sDist * tand(rRF) / swMm * swPix * 2 );	% diameter of RF in pixel
+				img = ToolKit.Gabor( wlPix, 45, 0, swPix, swPix, 'grating' )' * bk * contrast;
+				
+				bMov = zeros(wRF,wRF,T);
+				nbMov = zeros(wRF,wRF,T);
+				index = (1:wRF) + round((swPix-wRF)/2);
+				for( t = 1 : T )
+					nbMov(:,:,t) = interp2( 1:swPix, 1:swPix, img, index+x1(t), index'+y1(t) ) * Gt(t) + bk;
+					% nbMov(:,:,t) = img( index+x1(t), index+y1(t) ) * Gt(t) + bk;
+					if( 1300 <= t && t < 1450 )
+						bMov(:,:,t) = bk;
+					else
+						bMov(:,:,t) = interp2( 1:swPix, 1:swPix, img, index+x2(t), index'+y2(t) ) * Gt(t) + bk;
+						% bMov(:,:,t) = img( index+x2(t), index+y2(t) ) * Gt(t) + bk;
+					end
+				end
+				
+				%% example luminance profiles
+				subplot(2,3,iSF); hold on;
+				plot( 0 : T-1, mean( reshape(nbMov,[],T), 1 ), 'b-', 'LineWidth', 2, 'DisplayName', 'No Blink' );
+				plot( 0 : T-1, mean( reshape(bMov,[],T), 1 ), 'r-', 'LineWidth', 2, 'DisplayName', 'Simulated Blink' );
+				legend;
+				set( gca, 'FontSize', 20, 'xcolor', 'k', 'ycolor', 'k', 'LineWidth', 2 );
+				xlabel('Time (ms)');
+				if( iSF == 1 )
+					ylabel('Luminance (cd/m^2)');
+				end
+				title(num2str(SF));
+
+				subplot(2,3,iSF+3); hold on;
+				b = QRad_fft2_SingleTrace(SF, size(x100,2), 0, x100, y100, 1, Gt.*[ones(1,1300), zeros(1,250), ones(1,950)])';
+				nb = QRad_fft2_SingleTrace(SF, size(x100,2), 0, x100, y100, 1, Gt)';
+				% b = abs(fft(mean( reshape(bMov,[],T), 1 ))).^2;
+				% nb = abs(fft(mean( reshape(nbMov,[],T), 1 ))).^2;
+				plot( (0:2500/2)/2500*1000, log10([b(1),b(2:end/2)*2,b(end/2+1)]), 'r', 'linewidth', 2 )
+				plot( (0:2500/2)/2500*1000, log10([nb(1),nb(2:end/2)*2,nb(end/2+1)]), 'b', 'linewidth', 2 )
+				set( gca, 'xlim', [0.3 600], 'xtick', 10.^(0:2), 'xticklabel', {'1','10','100'}, 'XScale', 'log', 'YScale', 'linear', 'FontSize', 20, 'LineWidth', 2, 'xcolor', 'k', 'ycolor', 'k' );
+				xlabel('Temporal frequency (Hz)');
+				if( iSF == 1 )
+					ylabel('Power (dB)');
+				end
+			end
+		end
+
+
+		function FV_PSD_V2( withRamp, destFolder, rSlope, gainMin, isWelch, useFV )
+			%  rSlope:			proportion/ratio of two slopes over total duration for a simulated blink; 0.2 by default
+			%  gainMin:			minimal gain during a simulated blink; 0 by default
+			
 			%% PSD analysis using free viewing data
 			%  PSD of I_k_0(x,t) = a * sin( 2pi*k_0*x + eye(t) ) * g(t) + b * { g(t) - E[g(t)] }, where g(t) is the blink as a gain function
 			if( nargin() < 1 || isempty(withRamp) ) withRamp = true; end
 			if( nargin() < 2 || isempty(destFolder) ) destFolder = './'; end
+			if( nargin() < 3 || isempty(rSlope) ) rSlope = 0; end
+			if( nargin() < 4 || isempty(gainMin) ) gainMin = 0; end
+			if( nargin() < 5 || isempty(isWelch) ) isWelch = 1; end
+			if( nargin() < 6 || isempty(useFV) ) useFV = false; end
+			
 
 			SF = 0;
 			
@@ -2584,117 +3621,236 @@ classdef BlinkTransient < handle
 			if( exist( [destFolder, '\PSD_FV_withRamp', num2str(withRamp), '.mat'], 'file' ) == 2 )
 				load( [destFolder, '\PSD_FV_withRamp', num2str(withRamp), '.mat'] );
 			else
-				folders = dir( 'F:\FreeViewingDatabase\*FV.mat' );
-				for( iFolder = size(folders,1) : -1 : 1 )
-					fprintf( 'Processing %s...\n', folders(iFolder).name );
-					vt = load( fullfile( folders(iFolder).folder, folders(iFolder).name ), 'Trials' );
-					Trials = vt.Trials;
+				swPix = 1366;%2560;	% screen width in pixels
+				swMm = 600;		% screen width in mm
+				sDist = 1605;%1190;	% distance from screen to subject's eye in mm
+				PSX = floor(swPix/2)*2;
+				sFreqs = (0 : PSX/2) / (atand( PSX/swPix*swMm/2 / sDist ) * 2);
 
-					hMain = figure( 'NumberTitle', 'off', 'name', [ folders(iFolder).name, ' | PSD Based on FreeViewing Data | withRamp: ', num2str(withRamp) ], 'color', 'w' );
+				tRamp = 1500;%1024+512;
+				tPlateau = 1000;%1024;%+512;
+				contrast = 0.4;
+				b = BlinkTransient.Intensity2Luminance(128);
+				a = b*contrast;
+				Gt = ones(1,tRamp+tPlateau);
+	    		if(withRamp)
+		    		Gt(1:tRamp) = (0:tRamp-1)/(tRamp-1);
+		    	end
+				
+				PSZ = tRamp + tPlateau;
+				tFreqs = (0 : PSZ/2) / (PSZ/1000);
+
+				Win = 1;	% e.g., Hanning Window
+				U = 1;	% scale factor for Win
+				
+				sf = 3;
+				orientation = 0;
+
+				% useFV = false;
+				if(useFV)
+					% population blink RT and duration
+		    		[~, populationRT, populationDur] = BlinkTransient.Supplementals20190527(2+4,'drift');
+		    		populationRT( populationRT < 0 | populationRT > 2000 ) = [];
+					populationDur( populationDur > 800 ) = [];
+		    		populationRT = round(populationRT);
+		    		populationDur = round(populationDur);
+
+					folders = dir( 'F:\FreeViewingDatabase\*FV.mat' );
+					sbjs = { folders.name };
+					nSbjs = size(sbjs,2);
+					for( iSbj = 1 : nSbjs )
+						sbjs{iSbj} = sbjs{iSbj}(1:end-4);
+					end
+	
+				else
+
+					sbjs 	= { 'Bin',	'A058',	'A082',	'A002', 'A050', 'A092', 'A029', 'A049', 'A001', 'A098', 'A088', 'A037', 'A043', 'A025' };
+					folders = { 'F:\BlinkTransient\0 Main\Bin\Extracted_0.5s_sf3',...	% 0.5s
+								'F:\BlinkTransient\0 Main\A058\Extracted_1s_sf3',...
+								'F:\BlinkTransient\0 Main\A082\2 FixedLevels\Extracted_1s_sf3',...
+								'F:\BlinkTransient\0 Main\A002',...
+								'F:\BlinkTransient\0 Main\A050',...
+								'F:\BlinkTransient\0 Main\A092',...
+								'F:\BlinkTransient\0 Main\A029',...
+								'F:\BlinkTransient\0 Main\A049',...
+								'F:\BlinkTransient\0 Main\A001',...
+								'F:\BlinkTransient\0 Main\A098',...
+								'F:\BlinkTransient\0 Main\A088\Extracted_1s_sf3',...
+								'F:\BlinkTransient\0 Main\A037',...
+								'F:\BlinkTransient\0 Main\A043\Extracted_1s_sf3',...
+								'F:\BlinkTransient\0 Main\A025' };
+					indices = { 1:29,...	% Bin
+								1:33,...	% A058
+								1:29,...	% A082
+								4:57,...	% A002
+								3:53,...	% A050
+								4:20,...	% A092
+								4:28,...	% A029
+								5:60,...	% A049
+								5:50,...	% A001
+								5:29,...	% A098
+								1:19,...	% A088
+								[4:36,41:45],...	% A037
+								1:19,...	% A043
+								8:32,...	% A025
+								};
+					nSbjs = size(sbjs,2) - 5;	% sbjs with enough drift only trials
+				end
+
+				for( iSbj = nSbjs : -1 : 1 )
+					fprintf( 'Processing %s...\n', sbjs{iSbj} );
+					if(useFV)
+						vt = load( fullfile( folders(iSbj).folder, folders(iSbj).name ), 'Trials' );
+						Trials = vt.Trials;
+					else
+						data = BlinkTransient.GetLabeledTrials4Blinks( folders{iSbj}, [], [], 'tRampOn', 0, 0 );
+						data = data(indices{iSbj});
+						for( i = 1 : size(data,2) )
+							data(i).trials( [data(i).trials.tBlinkBeepOn] - [data(i).trials.tRampOn] > -600 & ~[data(i).trials.hasBlink] | [data(i).trials.tBlinkBeepOn] - [data(i).trials.tRampOn] < -600 & [data(i).trials.hasBlink] ) = [];
+						end
+						trials = [data.trials];
+						index = ~[trials.hasSac] & ~[trials.hasMicrosac] & ~[trials.hasBlink];
+						for( iTrial = 1 : size(trials,2) )
+							notracks = trials(iTrial).notracks;
+							% notracks.start( notracks.duration / trials(iTrial).sRate * 1000 < 15 ) = [];
+							% notracks.duration( notracks.duration / trials(iTrial).sRate * 1000 < 15 ) = [];
+							index(iTrial) = index(iTrial) && sum( max( 0, ...
+								min( (notracks.start+notracks.duration-1)/trials(iTrial).sRate*1000, trials(iTrial).tMaskOn-trials(iTrial).tTrialStart ) - ...
+									max( (notracks.start-1)/trials(iTrial).sRate*1000, trials(iTrial).tRampOn-trials(iTrial).tTrialStart ) ) ) < 15;
+						end
+						Trials = trials(index);
+						RT = BlinkTransient.BlinkRT( sbjs{iSbj}, folders{iSbj}, indices{iSbj}, 'tRampOn', [], false, 50, false );
+						durations = BlinkTransient.BlinkDuration( sbjs{iSbj}, folders{iSbj}, indices{iSbj}, [], false, 10, false );
+						RT( RT < 0 | RT > 2000 ) = [];
+						durations( durations > 800 ) = [];
+			    		RT = round(RT);
+			    		durations = round(durations);
+					end
+
+					hMain = figure( 'NumberTitle', 'off', 'name', [ sbjs{iSbj}, ' | PSD | withRamp: ', num2str(withRamp) ], 'color', 'w' );
 					pause(0.1);
 					jf = get(handle(gcf),'javaframe');
 					jf.setMaximized(1);
 					pause(0.5);
 
-					swPix = 1366;%2560;	% screen width in pixels
-					swMm = 600;		% screen width in mm
-					sDist = 1605;%1190;	% distance from screen to subject's eye in mm
-					PSX = floor(swPix/2)*2;
-					sFreqs = (0 : PSX/2) / (atand( PSX/swPix*swMm/2 / sDist ) * 2);
+					hDrift = figure( 'NumberTitle', 'off', 'name', [ sbjs{iSbj}, ' | Drifts | withRamp: ', num2str(withRamp) ], 'color', 'w' ); hold on;
 
-					tRamp = 1024+512;
-					tPlateau = 1024;%+512;
-					a = 1;
-					b = 128;
-					if( withRamp )
-						ramp(1:tRamp) = ( 0 : tRamp-1 ) / (tRamp-1) * a;		% ramp of 1024+512 ms + plateau of 1024ms
-					end
-					PSZ = tRamp + tPlateau;
-					tFreqs = (0 : PSZ/2) / (PSZ/1000);
-
-					Win = 1;	% e.g., Hanning Window
-					U = 1;	% scale factor for Win
-					
-					sf = 3;
-					orientation = 0;
-
-					PS_D = zeros(PSX/2+1, PSZ/2+1);
-					PS_DB = zeros(PSX/2+1, PSZ/2+1);
-					for( iCon = 1 : 2 )
-						nValidTrials = size(Trials,2);
-						for( iTrial = 1 : size(Trials,2) )
-				    		% get eye drift
-							x = zeros( 1, sum([Trials(iTrial).drifts.duration]) );
-							y = zeros(size(x));
-							index = 0;
-							Trials(iTrial).blinks.start = [Trials(iTrial).blinks.start, Trials(iTrial).notracks.start];
-							Trials(iTrial).blinks.duration = [Trials(iTrial).blinks.duration, Trials(iTrial).notracks.duration];
-							for( i = 1 : size( Trials(iTrial).drifts.start, 2 ) )
-								idx = find( Trials(iTrial).drifts.start(i) == Trials(iTrial).blinks.start + Trials(iTrial).blinks.duration );
-								if( ~isempty(idx) )
-									st = Trials(iTrial).drifts.start(i) + 250;
-									dur = Trials(iTrial).drifts.duration(i) - 250;
-									if( dur < 1 )
-										continue;
-									else
-										Trials(iTrial).drifts.start(i) = st;
-										Trials(iTrial).drifts.duration(i) = dur;
-									end
+					sFreqs = unique([sFreqs,3]);
+					PS_D = zeros(PSX/2+2, PSZ/2+1);
+					PS_DB = zeros(PSX/2+2, PSZ/2+1);
+					% PS_D = zeros(PSX/2+1, PSZ/2+1);
+					% PS_DB = zeros(PSX/2+1, PSZ/2+1);
+					nValidTrials = size(Trials,2);
+					for( iTrial = 1 : size(Trials,2) )
+			    		% get eye drift
+						x = zeros( 1, sum([Trials(iTrial).drifts.duration]) );
+						y = zeros(size(x));
+						index = 0;
+						Trials(iTrial).blinks.start = [Trials(iTrial).blinks.start, Trials(iTrial).notracks.start];
+						Trials(iTrial).blinks.duration = [Trials(iTrial).blinks.duration, Trials(iTrial).notracks.duration];
+						for( i = 1 : size( Trials(iTrial).drifts.start, 2 ) )
+							idx = find( Trials(iTrial).drifts.start(i) == Trials(iTrial).blinks.start + Trials(iTrial).blinks.duration );
+							if( ~isempty(idx) )
+								st = Trials(iTrial).drifts.start(i) + 250;
+								dur = Trials(iTrial).drifts.duration(i) - 250;
+								if( dur < 1 )
+									continue;
+								else
+									Trials(iTrial).drifts.start(i) = st;
+									Trials(iTrial).drifts.duration(i) = dur;
 								end
-								idx = find( Trials(iTrial).drifts.start(i) + Trials(iTrial).drifts.duration(i) == Trials(iTrial).blinks.start );
-								if( ~isempty(idx) )
-									dur = Trials(iTrial).drifts.duration(i) - 50;
-									if( dur < 1 )
-										continue;
-									else
-										Trials(iTrial).drifts.duration(i) = dur;
-									end
+							end
+							idx = find( Trials(iTrial).drifts.start(i) + Trials(iTrial).drifts.duration(i) == Trials(iTrial).blinks.start );
+							if( ~isempty(idx) )
+								dur = Trials(iTrial).drifts.duration(i) - 50;
+								if( dur < 1 )
+									continue;
+								else
+									Trials(iTrial).drifts.duration(i) = dur;
 								end
-								x( (1 : Trials(iTrial).drifts.duration(i)) + index ) = Trials(iTrial).x.position( (0 : Trials(iTrial).drifts.duration(i)-1) + Trials(iTrial).drifts.start(i) );
-								y( (1 : Trials(iTrial).drifts.duration(i)) + index ) = Trials(iTrial).y.position( (0 : Trials(iTrial).drifts.duration(i)-1) + Trials(iTrial).drifts.start(i) );
-								if( index > 0 )
-									x( (1 : Trials(iTrial).drifts.duration(i)) + index ) = x( (1 : Trials(iTrial).drifts.duration(i)) + index ) - x(index+1) + x(index);
-									y( (1 : Trials(iTrial).drifts.duration(i)) + index ) = y( (1 : Trials(iTrial).drifts.duration(i)) + index ) - y(index+1) + y(index);
-								end
-								index = index + Trials(iTrial).drifts.duration(i);
 							end
-							x( index+1 : end ) = [];
-							y( index+1 : end ) = [];
-							if( size(x,2) < PSZ )
-								nValidTrials = nValidTrials - 1;
-								continue;
+							x( (1 : Trials(iTrial).drifts.duration(i)) + index ) = Trials(iTrial).x.position( (0 : Trials(iTrial).drifts.duration(i)-1) + Trials(iTrial).drifts.start(i) );
+							y( (1 : Trials(iTrial).drifts.duration(i)) + index ) = Trials(iTrial).y.position( (0 : Trials(iTrial).drifts.duration(i)-1) + Trials(iTrial).drifts.start(i) );
+							if( index > 0 )
+								x( (1 : Trials(iTrial).drifts.duration(i)) + index ) = x( (1 : Trials(iTrial).drifts.duration(i)) + index ) - x(index+1) + x(index);
+								y( (1 : Trials(iTrial).drifts.duration(i)) + index ) = y( (1 : Trials(iTrial).drifts.duration(i)) + index ) - y(index+1) + y(index);
 							end
-							x = x(1:PSZ);
-							y = y(1:PSZ);
-
-							% rotate by -orientation
-							xx = x * cosd(orientation) + y * sind(orientation);
-							yy = y * cosd(orientation) - x * sind(orientation);
-
-							% center eye trace
-							x = x - mean(x);
-							y = y - mean(y);
-
-							if( iCon == 1 )		% drift
-								tPS = a^2 * QRad_fft2_SingleTrace(sFreqs, size(x,2), 0, x, y, Win)';
-								tPS(1,:) = 0;
-								PS_D = PS_D + tPS(:,1:size(PS_D,2));
-							else 	% drift + blink
-								% blink function
-								Gt = ones(1,PSZ);
-								Gt( (-100:100) + PSZ/2 ) = 0;
-								tPS = a^2 * QRad_fft2_SingleTrace(sFreqs, size(x,2), 0, x, y, Win, Gt)';
-								tPS(1,:) = b^2 * abs( fft( Gt - mean(Gt) ) ).^2;
-								PS_DB = PS_DB + tPS(:,1:size(PS_DB,2));
-							end
-							
+							index = index + Trials(iTrial).drifts.duration(i);
 						end
+						x( index+1 : end ) = [];
+						y( index+1 : end ) = [];
+
+						if( ~useFV && ( strcmpi( sbjs{iSbj}, 'A002' ) || strcmpi( sbjs{iSbj}, 'A050' ) ) )
+							x = interp2( (0:size(x,2)-1)*1000/Trials(iTrial).sRate, [1,2], [x; x+1], 0 : floor((size(x,2)-1)*1000/Trials(iTrial).sRate), 1, 'linear' );
+							y = interp2( (0:size(y,2)-1)*1000/Trials(iTrial).sRate, [1,2], [y; y+1], 0 : floor((size(y,2)-1)*1000/Trials(iTrial).sRate), 1, 'linear' );
+						end
+
+						if( size(x,2) < PSZ )
+							nValidTrials = nValidTrials - 1;
+							continue;
+						end
+						x = x(1:PSZ);
+						y = y(1:PSZ);
+
+						% rotate by -orientation
+						xx = x * cosd(orientation) + y * sind(orientation);
+						yy = y * cosd(orientation) - x * sind(orientation);
+
+						% center eye trace
+						x = x - mean(x);
+						y = y - mean(y);
+						plot( x, 'b' );
+						plot( y, 'r' );
+
+						% drift
+						if(isWelch)
+							tPS = a^2 * QRad_Welch_SingleTrace(sFreqs, size(x,2), (0:0.1:2)*pi, x, y, Win, Gt)';
+						else
+							Win = ones(1,size(x/2));
+							tPS = a^2 * QRad_fft2_SingleTrace(sFreqs, size(x,2), (0:0.1:2)*pi, x, y, Win, Gt, Trials(iTrial).sRate)';
+						end
+						tPS(1,:) = 0;
+						PS_D = PS_D + tPS(:,1:size(PS_D,2));
+
+						% drift + blink
+						% blink RT and duration
+						if(useFV)
+							blinkRT = populationRT( randi( size(populationRT,2), 1, 1 ) );
+							blinkDur = populationDur( randi( size(populationDur,2), 1, 1 ) );
+						else
+							blinkRT = RT( randi( size(RT,2), 1, 1 ) );
+							blinkDur = durations( randi( size(durations,2), 1, 1 ) );
+						end
+						% blink function
+						Bt = ones(1,PSZ);
+						Bt( (1:blinkDur) + blinkRT-1 ) = gainMin;
+						down = blinkDur*rSlope/2;
+						Bt( (1:down) + blinkRT-1 ) = 1 - (1:down)/down * (1-gainMin);
+						up = blinkDur*rSlope/2;
+						Bt( ( blinkDur : -1 : blinkDur-up+1 ) + blinkRT-1 ) = 1 - (1:up)/up * (1-gainMin);
+						% for( t = 1 : T )
+						% 	rfImg(:,:,t) = ( img( (1:rfWPix) + rfLoc(1) + x(t), (1:rfHPix) + rfLoc(2) + y(t) )' * Gt(t) + bgnLuminance ) * Bt(t);
+						% end
+						if(isWelch)
+							tPS = a^2 * QRad_Welch_SingleTrace(sFreqs, size(x,2), (0:0.1:2)*pi, x, y, Win, Gt.*Bt)';
+						else
+							Win = ones(1,size(x/2));
+							tPS = a^2 * QRad_fft2_SingleTrace(sFreqs, size(x,2), (0:0.1:2)*pi, x, y, Win, Gt.*Bt, Trials(iTrial).sRate)';
+						end
+						tPS(1,:) = b^2 * abs( fft( Gt - mean(Gt) ) ).^2;
+						PS_DB = PS_DB + tPS(:,1:size(PS_DB,2));
+						
 					end
 					PS_D( :, 2:end-1 ) = 2 * PS_D( :, 2:end-1 );	% convert to single sided
 					PS_D = PS_D / (PSZ*1000) / nValidTrials;	% fft^2 / (N*Fs); and average over all eye traces
 					PS_DB( :, 2:end-1 ) = 2 * PS_DB( :, 2:end-1 );	% convert to single sided
 					PS_DB = PS_DB / (PSZ*1000) / nValidTrials;	% fft^2 / (N*Fs); and average over all eye traces
 
+					saveas( hDrift, [ destFolder, '\Drifts_', sbjs{iSbj}, '_withRamp', num2str(withRamp), '.fig' ] );
+					saveas( hDrift, [ destFolder, '\Drifts_', sbjs{iSbj}, '_withRamp', num2str(withRamp), '.png' ] );
+					close(hDrift);
+
+					figure(hMain);
 					subplot(2,2,1);
 					colormap('hot');
 					contour( sFreqs(1:end), tFreqs(2:end), PS_D(1:end,2:end)', 1000, 'LineStyle', 'none', 'fill', 'on' );
@@ -2734,10 +3890,10 @@ classdef BlinkTransient < handle
 					h(end+1) = plot( sFreqs, sum( PS_DB( :, 0 < tFreqs ), 2 ) * (tFreqs(2) - tFreqs(1)), '-', 'LineWidth', LineWidth, 'color', 'r', 'DisplayName', 'Drift+Blink Unweighted' );
 					pCellGain = RGC.TemporalFreqGainProfile( tFreqs, 'p', 'center' ) - RGC.TemporalFreqGainProfile( tFreqs, 'p', 'surround' );
 					mCellGain = RGC.TemporalFreqGainProfile( tFreqs, 'm', 'on' );
-					weighted_D.P = ( (tFreqs(2) - tFreqs(1))^2 * PS_D(:, 0<tFreqs) * pCellGain(tFreqs>0)' )';
-					weighted_D.M = ( (tFreqs(2) - tFreqs(1))^2 * PS_D(:, 0<tFreqs) * mCellGain(tFreqs>0)' )';
-					weighted_DB.P = ( (tFreqs(2) - tFreqs(1))^2 * PS_DB(:, 0<tFreqs) * pCellGain(tFreqs>0)' )';
-					weighted_DB.M = ( (tFreqs(2) - tFreqs(1))^2 * PS_DB(:, 0<tFreqs) * mCellGain(tFreqs>0)' )';
+					weighted_D.P = ( (tFreqs(2) - tFreqs(1)) * PS_D(:, 0<tFreqs) * pCellGain(tFreqs>0)' )';
+					weighted_D.M = ( (tFreqs(2) - tFreqs(1)) * PS_D(:, 0<tFreqs) * mCellGain(tFreqs>0)' )';
+					weighted_DB.P = ( (tFreqs(2) - tFreqs(1)) * PS_DB(:, 0<tFreqs) * pCellGain(tFreqs>0)' )';
+					weighted_DB.M = ( (tFreqs(2) - tFreqs(1)) * PS_DB(:, 0<tFreqs) * mCellGain(tFreqs>0)' )';
 					h(end+1) = plot( sFreqs, weighted_D.P, '--', 'LineWidth', LineWidth, 'color', 'b', 'DisplayName', 'Drift P-cell' );
 					h(end+1) = plot( sFreqs, weighted_D.M, '-.', 'LineWidth', LineWidth, 'color', 'b', 'DisplayName', 'Drift M-cell' );
 					h(end+1) = plot( sFreqs, weighted_DB.P, '--', 'LineWidth', LineWidth, 'color', 'r', 'DisplayName', 'Drift+Blink P-cell' );
@@ -2775,18 +3931,18 @@ classdef BlinkTransient < handle
 					xlabel('Temporal frequency (Hz)');
 					ylabel('Power spectral density');
 					pause(10);
-					saveas( gcf, [ destFolder, '\FV_', folders(iFolder).name(1:end-4), '_withRamp', num2str(withRamp), '.fig' ] );
-					saveas( gcf, [ destFolder, '\FV_', folders(iFolder).name(1:end-4), '_withRamp', num2str(withRamp), '.png' ] );
+					saveas( gcf, [ destFolder, '\FV_', sbjs{iSbj}, '_withRamp', num2str(withRamp), '.fig' ] );
+					saveas( gcf, [ destFolder, '\FV_', sbjs{iSbj}, '_withRamp', num2str(withRamp), '.png' ] );
 					close(gcf);
 
-					PSD_FV.PS_D(:,:,iFolder) = PS_D;
+					PSD_FV.PS_D(:,:,iSbj) = PS_D;
 					PSD_FV.sFreqs = sFreqs;
 					PSD_FV.tFreqs = tFreqs;
-					PSD_FV.PS_DB(:,:,iFolder) = PS_DB;
-					PSD_FV.weighted_D.P(iFolder,:) = weighted_D.P;
-					PSD_FV.weighted_D.M(iFolder,:) = weighted_D.M;
-					PSD_FV.weighted_DB.P(iFolder,:) = weighted_DB.P;
-					PSD_FV.weighted_DB.M(iFolder,:) = weighted_DB.M;
+					PSD_FV.PS_DB(:,:,iSbj) = PS_DB;
+					PSD_FV.weighted_D.P(iSbj,:) = weighted_D.P;
+					PSD_FV.weighted_D.M(iSbj,:) = weighted_D.M;
+					PSD_FV.weighted_DB.P(iSbj,:) = weighted_DB.P;
+					PSD_FV.weighted_DB.M(iSbj,:) = weighted_DB.M;
 					PSD_FV.pCellGain = pCellGain;
 					PSD_FV.mCellGain = mCellGain;
 				end
@@ -2803,7 +3959,7 @@ classdef BlinkTransient < handle
 			pCellGain = PSD_FV.pCellGain;
 			mCellGain = PSD_FV.mCellGain;
 
-			set( figure, 'NumberTitle', 'off', 'name', [ 'Mean of Population | PSD Based on FreeViewing Data | withRamp: ', num2str(withRamp) ], 'color', 'w' );
+			set( figure, 'NumberTitle', 'off', 'name', [ 'Mean of Population | PSD | withRamp: ', num2str(withRamp) ], 'color', 'w' );
 			pause(0.1);
 			jf = get(handle(gcf),'javaframe');
 			jf.setMaximized(1);
@@ -2867,7 +4023,7 @@ classdef BlinkTransient < handle
 			saveas( gcf, [ destFolder, '\FV_Population_Mean_withRamp', num2str(withRamp), '.png' ] );
 
 
-			set( figure, 'NumberTitle', 'off', 'name', [ 'Population | PSD Based on FreeViewing Data | withRamp: ', num2str(withRamp) ], 'color', 'w' );
+			set( figure, 'NumberTitle', 'off', 'name', [ 'Population | PSD | withRamp: ', num2str(withRamp) ], 'color', 'w' );
 			pause(0.1);
 			jf = get(handle(gcf),'javaframe');
 			jf.setMaximized(1);
@@ -2918,6 +4074,628 @@ classdef BlinkTransient < handle
 			ToolKit.ShowSignificance( [9, std(Unweighted.D)+mean(Unweighted.D)], [11, std(Unweighted.DB_0)+mean(Unweighted.DB_0)], pVal.M_DB_0, 0.02, true, 'FontSize', 24 );
 
 			set( gca, 'XLim', [-1 13], 'XTick', [2, 6, 10], 'XTickLabel', { 'P Cell', 'M Cell', 'Unweighted' }, 'XTickLabelRotation', 10, 'YScale', 'log', 'FontSize', FontSize, 'LineWidth', LineWidth, 'box', 'off' );
+			title( 'PSD', 'FontSize', 20 );
+			ylabel('PSD');
+			set( legend(h), 'location', 'northeastout', 'fontsize', 18 );
+			saveas( gcf, [ destFolder, '\FV_Population_withRamp', num2str(withRamp), '.fig' ] );
+			saveas( gcf, [ destFolder, '\FV_Population_withRamp', num2str(withRamp), '.png' ] );
+		end
+
+
+		function MainExp_PSD( withRamp, destFolder, rSlope, gainMin, isWelch, rampPSD )
+			%  rSlope:			proportion/ratio of two slopes over total duration for a simulated blink; 0.2 by default
+			%  gainMin:			minimal gain during a simulated blink; 0 by default
+			
+			%% PSD analysis using free viewing data
+			%  PSD of I_k_0(x,t) = a * sin( 2pi*k_0*x + eye(t) ) * g(t) + b * { g(t) - E[g(t)] }, where g(t) is the blink as a gain function
+			if( nargin() < 1 || isempty(withRamp) ) withRamp = true; end
+			if( nargin() < 2 || isempty(destFolder) ) destFolder = './'; end
+			if( nargin() < 3 || isempty(rSlope) ) rSlope = 0; end
+			if( nargin() < 4 || isempty(gainMin) ) gainMin = 0; end
+			if( nargin() < 5 || isempty(isWelch) ) isWelch = false; end
+			if( nargin() < 6 || isempty(rampPSD) ) rampPSD = false; end
+			
+
+			SF = 0;
+			
+			FontSize = 22;
+			LineWidth = 2;
+
+			if( exist( [destFolder, '\PSD_MainExp_withRamp', num2str(withRamp), '.mat'], 'file' ) == 2 )
+				load( [destFolder, '\PSD_MainExp_withRamp', num2str(withRamp), '.mat'] );
+			else
+				swPix = 1366;%2560;	% screen width in pixels
+				swMm = 600;		% screen width in mm
+				sDist = 1605;%1190;	% distance from screen to subject's eye in mm
+				PSX = floor(swPix/2)*2;
+				sFreqs = (0 : PSX/2) / (atand( PSX/swPix*swMm/2 / sDist ) * 2);
+
+				tRamp = 1500;%1024+512;
+				tPlateau = 1000;%1024;%+512;
+				contrast = 0.4;
+				b = BlinkTransient.Intensity2Luminance(128);
+				a = b*contrast;
+				Gt = ones(1,tRamp+tPlateau);
+	    		if(withRamp)
+		    		Gt(1:tRamp) = (0:tRamp-1)/(tRamp-1);
+		    	end
+				
+				PSZ = tRamp + tPlateau;
+				tFreqs = (0 : PSZ/2) / (PSZ/1000);
+
+				Win = 1;	% e.g., Hanning Window
+				U = 1;	% scale factor for Win
+				
+				sf = 3;
+				orientation = 0;
+
+				sbjs 	= { 'Bin',	'A058',	'A082',	'A002', 'A050', 'A092', 'A029', 'A049', 'A001', 'A098', 'A088', 'A037', 'A043', 'A025' };
+				folders = { 'F:\BlinkTransient\0 Main\Bin\Extracted_0.5s_sf3',...	% 0.5s
+							'F:\BlinkTransient\0 Main\A058\Extracted_1s_sf3',...
+							'F:\BlinkTransient\0 Main\A082\2 FixedLevels\Extracted_1s_sf3',...
+							'F:\BlinkTransient\0 Main\A002',...
+							'F:\BlinkTransient\0 Main\A050',...
+							'F:\BlinkTransient\0 Main\A092',...
+							'F:\BlinkTransient\0 Main\A029',...
+							'F:\BlinkTransient\0 Main\A049',...
+							'F:\BlinkTransient\0 Main\A001',...
+							'F:\BlinkTransient\0 Main\A098',...
+							'F:\BlinkTransient\0 Main\A088\Extracted_1s_sf3',...
+							'F:\BlinkTransient\0 Main\A037',...
+							'F:\BlinkTransient\0 Main\A043\Extracted_1s_sf3',...
+							'F:\BlinkTransient\0 Main\A025' };
+				indices = { 1:29,...	% Bin
+							1:33,...	% A058
+							1:29,...	% A082
+							4:57,...	% A002
+							3:53,...	% A050
+							4:20,...	% A092
+							4:28,...	% A029
+							5:60,...	% A049
+							5:50,...	% A001
+							5:29,...	% A098
+							1:19,...	% A088
+							[4:36,41:45],...	% A037
+							1:19,...	% A043
+							8:32,...	% A025
+							};
+				nSbjs = size(sbjs,2) - 5;	% sbjs with enough drift only trials
+				inValidTrialsIndices = {	[56],	[66];...	% Bin
+											[],	[22,53,92];...	% A058
+											[],	[33];...	% A082
+											[78,80,82],	[31,43,44,47,52,61,68,69,70,73,74,78,79];...	% A002
+											[99],	[2,3,58,92,126,166,169];...	% A050
+											[],	[21];...	% A092
+											[],	[];...	% A029
+											[],	[];...	% A049
+											[],	[];...	% A001
+											[],	[];...	% A098
+											[],	[];...	% A088
+											[],	[];...	% A037
+											[],	[];...	% A043
+											[],	[];...	% A025
+											};
+
+				for( iSbj = nSbjs : -1 : 1 )
+					fprintf( 'Processing %s...\n', sbjs{iSbj} );
+					data = BlinkTransient.GetLabeledTrials4Blinks( folders{iSbj}, [], [], 'tRampOn', 0, 0 );
+					data = data(indices{iSbj});
+					for( i = 1 : size(data,2) )
+						data(i).trials( [data(i).trials.tBlinkBeepOn] - [data(i).trials.tRampOn] > -600 & ~[data(i).trials.hasBlink] | [data(i).trials.tBlinkBeepOn] - [data(i).trials.tRampOn] < -600 & [data(i).trials.hasBlink] ) = [];
+					end
+					trials = [data.trials];
+					index = ~[trials.hasSac] & ~[trials.hasMicrosac];
+					for( iTrial = 1 : size(trials,2) )
+						notracks = trials(iTrial).notracks;
+						% notracks.start( notracks.duration / trials(iTrial).sRate * 1000 < 15 ) = [];
+						% notracks.duration( notracks.duration / trials(iTrial).sRate * 1000 < 15 ) = [];
+						index(iTrial) = index(iTrial) && sum( max( 0, ...
+							min( (notracks.start+notracks.duration-1)/trials(iTrial).sRate*1000, trials(iTrial).tMaskOn-trials(iTrial).tTrialStart ) - ...
+								max( (notracks.start-1)/trials(iTrial).sRate*1000, trials(iTrial).tRampOn-trials(iTrial).tTrialStart ) ) ) < 15;
+					end
+					trials = trials(index);
+
+					hMain = figure( 'NumberTitle', 'off', 'name', [ sbjs{iSbj}, ' | PSD | withRamp: ', num2str(withRamp) ], 'color', 'w' );
+					pause(0.1);
+					jf = get(handle(gcf),'javaframe');
+					jf.setMaximized(1);
+					pause(0.5);
+
+					hDrift = figure( 'NumberTitle', 'off', 'name', [ sbjs{iSbj}, ' | Drifts | withRamp: ', num2str(withRamp) ], 'color', 'w' ); hold on;
+
+					sFreqs = unique([sFreqs,3]);
+					PS_D = zeros(PSX/2+2, PSZ/2+1);
+					PS_DB = zeros(PSX/2+2, PSZ/2+1);
+					% PS_D = zeros(PSX/2+1, PSZ/2+1);
+					% PS_DB = zeros(PSX/2+1, PSZ/2+1);
+					D_drift_span = 0;
+					D_drift_mSpeed = 0;
+					D_drift_mCurvature = 0;
+					D_drift_varX = 0;
+					D_drift_varY = 0;
+					fixations = [];
+					subplot(2,1,1); hold on;
+					Trials = trials(~[trials.hasBlink]);
+					Trials(inValidTrialsIndices{iSbj,1}) = [];
+					nValidTrials = size(Trials,2);
+					validFlag = true(size(Trials));
+					PS_D_Individual = nan(nValidTrials, PSZ/2+1);
+					for( iTrial = 1 : size(Trials,2) )
+						% get eye drift
+			    		index = round( ( Trials(iTrial).tRampOn + 100 - Trials(iTrial).tTrialStart - 1 ) / 1000 * Trials(iTrial).sRate ) : round( ( Trials(iTrial).tMaskOn - Trials(iTrial).tTrialStart - 1 ) / 1000 * Trials(iTrial).sRate );
+						x = Trials(iTrial).x.position(index);
+						y = Trials(iTrial).y.position(index);
+
+						if( strcmpi( sbjs{iSbj}, 'A002' ) || strcmpi( sbjs{iSbj}, 'A050' ) )
+							x = interp2( (0:size(x,2)-1)*1000/Trials(iTrial).sRate, [1,2], [x; x+1], 0 : floor((size(x,2)-1)*1000/Trials(iTrial).sRate), 1, 'linear' );
+							y = interp2( (0:size(y,2)-1)*1000/Trials(iTrial).sRate, [1,2], [y; y+1], 0 : floor((size(y,2)-1)*1000/Trials(iTrial).sRate), 1, 'linear' );
+						end
+						x = [x, x(end-150:end) - x(end-151) + x(end)];
+						y = [y, y(end-150:end) - y(end-151) + y(end)];
+						if( strcmpi( sbjs{iSbj}, 'bin' ) )
+							x = [x, x(end-500:end) - x(end-501) + x(end)];
+							y = [y, y(end-500:end) - y(end-501) + y(end)];
+						end
+
+						if( size(x,2) < PSZ )
+							nValidTrials = nValidTrials - 1;
+							validFlag(iTrial) = false;
+							continue;
+						end
+						x = x(1:PSZ);
+						y = y(1:PSZ);
+
+						% rotate by -orientation
+						xx = x * cosd(orientation) + y * sind(orientation);
+						yy = y * cosd(orientation) - x * sind(orientation);
+
+						% center eye trace
+						x = x - mean(x);
+						y = y - mean(y);
+						plot( x, 'b' );
+						plot( y, 'r' );
+
+						%% static image, calculate psd of ramp
+						if(rampPSD)
+							x = zeros(1,PSZ);
+							y = x;
+						end
+
+						% drift
+						contrast = Trials(iTrial).gaborAmp/128.0;
+						b = BlinkTransient.Intensity2Luminance(128);
+						a = b*contrast;
+						angles = (0:0.1:2)*pi;
+						angles = Trials(iTrial).gaborOri / 180 * pi;
+						if(isWelch)
+							Win = hann(PSZ/2);
+							tPS = a^2 * QRad_Welch_SingleTrace(sFreqs, size(x,2), angles, x, y, Win, Gt, Trials(iTrial).sRate)';
+						else
+							tPS = a^2 * QRad_fft2_SingleTrace(sFreqs, size(x,2), angles, x, y, Win, Gt)';
+						end
+						tPS(1,:) = 0;
+						PS_D = PS_D + tPS(:,1:size(PS_D,2));
+						PS_D_Individual(iTrial,:) = tPS(sFreqs == 3, 1:size(PS_D_Individual,2));
+
+						[span, mSpeed, mCurvature, varX, varY] = getDriftChar( x, y, 41, 0, 300);
+						D_drift_span = D_drift_span + span;
+						D_drift_mSpeed = D_drift_mSpeed + mSpeed;
+						D_drift_mCurvature = D_drift_mCurvature + mCurvature;
+						D_drift_varX = D_drift_varX + varX;
+						D_drift_varY = D_drift_varY + varY;
+						fixations(iTrial).x = x;
+						fixations(iTrial).y = y;
+					end
+					D_drift_span = D_drift_span / nValidTrials;
+					D_drift_mSpeed = D_drift_mSpeed / nValidTrials;
+					D_drift_mCurvature = D_drift_mCurvature / nValidTrials;
+					D_drift_varX = D_drift_varX / nValidTrials;
+					D_drift_varY = D_drift_varY / nValidTrials;
+					[D_DFDetrended, ~, D_DF, ~, D_dsq, D_DsqSingleSeg] = CalculateDiffusionCoef( fixations(validFlag), 'MaxTime', PSZ );
+
+					PS_D( :, 2:end-1 ) = 2 * PS_D( :, 2:end-1 );	% convert to single sided
+					PS_D = PS_D / (PSZ*1000) / nValidTrials;	% fft^2 / (N*Fs); and average over all eye traces
+					PS_D_Individual( :, 2:end-1 ) = 2 * PS_D_Individual( :, 2:end-1 );
+					PS_D_Individual = PS_D_Individual / (PSZ*1000);
+					title('No Blink');
+
+					DB_drift_span = 0;
+					DB_drift_mSpeed = 0;
+					DB_drift_mCurvature = 0;
+					DB_drift_varX = 0;
+					DB_drift_varY = 0;
+					fixations = [];
+					maxTime = 0;
+					subplot(2,1,2); hold on;
+					Trials = trials([trials.hasBlink]);
+					Trials(inValidTrialsIndices{iSbj,2}) = [];
+					validFlag = true(size(Trials));
+					nValidTrials = size(Trials,2);
+					PS_DB_Individual = nan(nValidTrials, PSZ/2+1);
+					for( iTrial = 1 : size(Trials,2) )
+			    		% get eye drift
+			    		offset = 100;
+			    		index = round( ( Trials(iTrial).tRampOn + offset - Trials(iTrial).tTrialStart - 1 ) / 1000 * Trials(iTrial).sRate ) : round( ( Trials(iTrial).tMaskOn - Trials(iTrial).tTrialStart - 1 ) / 1000 * Trials(iTrial).sRate );
+						x = Trials(iTrial).x.position(index);
+						y = Trials(iTrial).y.position(index);
+
+						if( strcmpi( sbjs{iSbj}, 'A002' ) || strcmpi( sbjs{iSbj}, 'A050' ) )
+							x = interp2( (0:size(x,2)-1)*1000/Trials(iTrial).sRate, [1,2], [x; x+1], 0 : floor((size(x,2)-1)*1000/Trials(iTrial).sRate), 1, 'linear' );
+							y = interp2( (0:size(y,2)-1)*1000/Trials(iTrial).sRate, [1,2], [y; y+1], 0 : floor((size(y,2)-1)*1000/Trials(iTrial).sRate), 1, 'linear' );
+						end
+
+						x = [x, x(end-340:end) - x(end-341) + x(end)];
+						y = [y, y(end-340:end) - y(end-341) + y(end)];
+
+						if( strcmpi( sbjs{iSbj}, 'bin' ) )
+							x = [x, x(end-500:end) - x(end-501) + x(end)];
+							y = [y, y(end-500:end) - y(end-501) + y(end)];
+						end
+
+						% rotate by -orientation
+						xx = x * cosd(orientation) + y * sind(orientation);
+						yy = y * cosd(orientation) - x * sind(orientation);
+
+						starts = round( (Trials(iTrial).blinks.start-1) / Trials(iTrial).sRate * 1000 + Trials(iTrial).tTrialStart - Trials(iTrial).tRampOn - offset );
+						ends = round( (Trials(iTrial).blinks.start + Trials(iTrial).blinks.duration - 2) / Trials(iTrial).sRate * 1000 + Trials(iTrial).tTrialStart - Trials(iTrial).tRampOn - offset );
+						index = starts < 600 | starts > 2300 | ends - starts > 600;
+						ends(index) = [];
+						starts(index) = [];
+						if( size(starts,2) ~= 1 || ends(1) > 2000 )
+							nValidTrials = nValidTrials - 1;
+							continue;
+						end
+						x( [-90:-1]+starts ) = x( end + (-89:0) ) - x(end-89) + x( starts-90 );
+						x( [1:200]+ends ) = [];
+						x(starts:ends) = x(starts-1);
+						x(ends+1:end) = x(ends+1:end) - x(ends+1) + x(ends);
+						y( [-90:-1]+starts ) = y( end + (-89:0) ) - y(end-89) + y( starts-90 );
+						y( [1:200]+ends ) = [];
+						y(starts:ends) = y(starts-1);
+						y(ends+1:end) = y(ends+1:end) - y(ends+1) + y(ends);
+						if( size(x,2) < PSZ )
+							nValidTrials = nValidTrials - 1;
+							validFlag(iTrial) = false;
+							continue;
+						end
+						x = x(1:PSZ);
+						y = y(1:PSZ);
+
+						% center eye trace
+						x = x - mean(x);
+						y = y - mean(y);
+
+						plot( x, 'b' );
+						plot( y, 'r' );
+
+						%% static image, calculate psd of ramp
+						if(rampPSD)
+							x = zeros(1,PSZ);
+							y = x;
+						end
+
+						% drift + blink
+						contrast = Trials(iTrial).gaborAmp/128.0;
+						b = BlinkTransient.Intensity2Luminance(128);
+						a = b*contrast;
+						% blink RT and duration
+						blinkRT = starts;
+						blinkDur = ends - starts + 1;
+						% blink function
+						Bt = ones(1,PSZ);
+						Bt( (1:blinkDur) + blinkRT-1 ) = gainMin;
+						down = blinkDur*rSlope/2;
+						Bt( (1:down) + blinkRT-1 ) = 1 - (1:down)/down * (1-gainMin);
+						up = blinkDur*rSlope/2;
+						Bt( ( blinkDur : -1 : blinkDur-up+1 ) + blinkRT-1 ) = 1 - (1:up)/up * (1-gainMin);
+						% for( t = 1 : T )
+						% 	rfImg(:,:,t) = ( img( (1:rfWPix) + rfLoc(1) + x(t), (1:rfHPix) + rfLoc(2) + y(t) )' * Gt(t) + bgnLuminance ) * Bt(t);
+						% end
+						angles = (0:0.1:2)*pi;
+						angles = Trials(iTrial).gaborOri / 180 * pi;
+						if(isWelch)
+							Win = hann(PSZ/2);
+							tPS = a^2 * QRad_Welch_SingleTrace(sFreqs, size(x,2), angles, x, y, Win, Gt.*Bt, Trials(iTrial).sRate)';
+						else
+							tPS = a^2 * QRad_fft2_SingleTrace(sFreqs, size(x,2), angles, x, y, Win, Gt.*Bt)';
+						end
+						tPS(1,:) = b^2 * abs( fft( Gt - mean(Gt) ) ).^2;
+						PS_DB = PS_DB + tPS(:,1:size(PS_DB,2));
+						PS_DB_Individual(iTrial,:) = tPS(sFreqs == 3, 1:size(PS_DB_Individual,2));
+
+						[span1, mSpeed1, mCurvature1, varX1, varY1] = getDriftChar( x(1:starts-1), y(1:starts-1), 41, 0, 300);
+						[span2, mSpeed2, mCurvature2, varX2, varY2] = getDriftChar( x(ends+1:end), y(ends+1:end), 41, 0, 300);
+						DB_drift_span = DB_drift_span + (span1 + span2)/2;
+						DB_drift_mSpeed = DB_drift_mSpeed + (mSpeed1 + mSpeed2)/2;
+						DB_drift_mCurvature = DB_drift_mCurvature + (mCurvature1 + mCurvature2)/2;
+						DB_drift_varX = DB_drift_varX + (varX1 + varX2)/2;
+						DB_drift_varY = DB_drift_varY + (varY1 + varY2)/2;
+						fixations(iTrial*2).x = x(1:starts-1);
+						fixations(iTrial*2).y = y(1:starts-1);
+						fixations(iTrial*2-1).x = x(ends+1:end);
+						fixations(iTrial*2-1).y = y(ends+1:end);
+						if( maxTime < max( [starts-1, PSZ-ends] ) )
+							maxTime = max( [starts-1, PSZ-ends] );
+						end
+					end
+					title('Blink');
+					DB_drift_span = DB_drift_span / nValidTrials;
+					DB_drift_mSpeed = DB_drift_mSpeed / nValidTrials;
+					DB_drift_mCurvature = DB_drift_mCurvature / nValidTrials;
+					DB_drift_varX = DB_drift_varX / nValidTrials;
+					DB_drift_varY = DB_drift_varY / nValidTrials;
+					[DB_DFDetrended, ~, DB_DF, ~, DB_dsq, DB_DsqSingleSeg] = CalculateDiffusionCoef( fixations( reshape(repmat(validFlag,2,1),1,[]) ), 'MaxTime', maxTime );
+
+					PS_DB( :, 2:end-1 ) = 2 * PS_DB( :, 2:end-1 );	% convert to single sided
+					PS_DB = PS_DB / (PSZ*1000) / nValidTrials;	% fft^2 / (N*Fs); and average over all eye traces
+					PS_DB_Individual( :, 2:end-1 ) = 2 * PS_DB_Individual( :, 2:end-1 );
+					PS_DB_Individual = PS_DB_Individual / (PSZ*1000);
+
+					saveas( hDrift, [ destFolder, '\Drifts_', sbjs{iSbj}, '_withRamp', num2str(withRamp), '.fig' ] );
+					saveas( hDrift, [ destFolder, '\Drifts_', sbjs{iSbj}, '_withRamp', num2str(withRamp), '.png' ] );
+					close(hDrift);
+
+					figure(hMain);
+					subplot(2,2,1);
+					colormap('hot');
+					contour( sFreqs(1:end), tFreqs(2:end), PS_D(1:end,2:end)', 1000, 'LineStyle', 'none', 'fill', 'on' );
+					caxis( [ 0, max(max( [PS_D(1:end,2:end), PS_DB(1:end,2:end)] )) ] );
+					colorbar;
+					xlabel( 'Spatial frequency (cpd)' );
+					ylabel( 'Temporal frequency (Hz)' );
+					title('Drift');
+					set( gca, 'color', 'k', 'FontSize', FontSize, 'LineWidth', LineWidth, 'XScale', 'linear', 'YScale', 'log', 'XLim', [0 30], 'YLim', [tFreqs(2), 60], 'XTick', 0:10:30, 'YTick', [1 5 10 20 40] );
+
+					subplot(2,2,2);
+					colormap('hot');
+					contour( sFreqs(1:end), tFreqs(2:end), PS_DB(1:end,2:end)', 1000, 'LineStyle', 'none', 'fill', 'on' );
+					caxis( [ 0, max(max( [PS_D(1:end,2:end), PS_DB(1:end,2:end)] )) ] );
+					colorbar;
+					xlabel( 'Spatial frequency (cpd)' );
+					ylabel( 'Temporal frequency (Hz)' );
+					title('Drift + Blink');
+					set( gca, 'color', 'k', 'FontSize', FontSize, 'LineWidth', LineWidth, 'XScale', 'linear', 'YScale', 'log', 'XLim', [0 30], 'YLim', [tFreqs(2), 60], 'XTick', 0:10:30, 'YTick', [1 5 10 20 40] );
+
+					subplot(2,2,3);
+					hold on;
+					% colors = {'m', 'b', 'c', 'k'};
+					% f = [1 5 10];% [5 10 20];
+					h = [];
+					% for( iF = 1:size(f,2) )
+					% 	y = zeros(size(sFreqs));
+					% 	y = interp2( tFreqs, sFreqs, PS_D, f(iF), sFreqs, 'linear' );
+					% 	plot( sFreqs, y, '--', 'LineWidth', LineWidth, 'color', colors{iF}, 'DisplayName', sprintf( '%d Hz Drift', f(iF) ) );
+
+					% 	y = zeros(size(sFreqs));
+					% 	y = interp2( tFreqs, sFreqs, PS_DB, f(iF), sFreqs, 'linear' );
+					% 	plot( sFreqs, y, '-', 'LineWidth', LineWidth, 'color', colors{iF}, 'DisplayName', sprintf( '%d Hz Drift+Blink', f(iF) ) );
+					% end
+					% cut = 10;%min(tFreqs_D(end),tFreqs_DB(end));
+					h(end+1) = plot( sFreqs, sum( PS_D( :, 0 < tFreqs ), 2 ) * (tFreqs(2) - tFreqs(1)), '-', 'LineWidth', LineWidth, 'color', 'b', 'DisplayName', 'Drift Unweighted' );
+					h(end+1) = plot( sFreqs, sum( PS_DB( :, 0 < tFreqs ), 2 ) * (tFreqs(2) - tFreqs(1)), '-', 'LineWidth', LineWidth, 'color', 'r', 'DisplayName', 'Drift+Blink Unweighted' );
+					pCellGain = RGC.TemporalFreqGainProfile( tFreqs, 'p', 'center' ) - RGC.TemporalFreqGainProfile( tFreqs, 'p', 'surround' );
+					mCellGain = RGC.TemporalFreqGainProfile( tFreqs, 'm', 'on' );
+					weighted_D.P = ( (tFreqs(2) - tFreqs(1)) * PS_D(:, 0<tFreqs) * pCellGain(tFreqs>0)' )';
+					weighted_D.M = ( (tFreqs(2) - tFreqs(1)) * PS_D(:, 0<tFreqs) * mCellGain(tFreqs>0)' )';
+					weighted_DB.P = ( (tFreqs(2) - tFreqs(1)) * PS_DB(:, 0<tFreqs) * pCellGain(tFreqs>0)' )';
+					weighted_DB.M = ( (tFreqs(2) - tFreqs(1)) * PS_DB(:, 0<tFreqs) * mCellGain(tFreqs>0)' )';
+					h(end+1) = plot( sFreqs, weighted_D.P, '--', 'LineWidth', LineWidth, 'color', 'b', 'DisplayName', 'Drift P-cell' );
+					h(end+1) = plot( sFreqs, weighted_D.M, '-.', 'LineWidth', LineWidth, 'color', 'b', 'DisplayName', 'Drift M-cell' );
+					h(end+1) = plot( sFreqs, weighted_DB.P, '--', 'LineWidth', LineWidth, 'color', 'r', 'DisplayName', 'Drift+Blink P-cell' );
+					h(end+1) = plot( sFreqs, weighted_DB.M, '-.', 'LineWidth', LineWidth, 'color', 'r', 'DisplayName', 'Drift+Blink M-cell' );
+					% names = { num2str(f(1)), num2str(f(2)), num2str(f(3)), 'NonZero' };
+					% for( i = 1 : 4 )
+					% 	h(end+1) = plot( -1, -1, 'LineStyle', 'none', 'Marker', 'Square', 'MarkerFaceColor', colors{i}, 'MarkerEdgeColor', colors{i}, 'DisplayName', [names{i} ' Hz'] );
+					% end
+					% h(end+1) = plot( -1, -1, 'k--', 'LineWidth', LineWidth, 'DisplayName', 'Drift' );
+					% h(end+1) = plot( -1, -1, 'k', 'LineWidth', LineWidth, 'DisplayName', 'Drift+Blink' );
+					set( gca, 'FontSize', FontSize, 'LineWidth', LineWidth, 'XScale', 'linear', 'YScale', 'log', 'XLim', [sFreqs(1), 30], 'XTick', 0:10:30, 'XTickLabel', 0:10:30 );
+					plot( [3 3], get(gca,'YLim'), 'k:' );
+					set( legend(h), 'location', 'Southeast' );
+					xlabel('Spatial frequency (cpd)');
+					ylabel('Power spectral density');
+					title('Non-Zero Hz Temporal Power');
+
+					subplot(2,2,4);
+					hold on;
+					k = [0 3];
+					% colors = {'m', 'b'};
+					LineStyles = {'-', '--'};
+					h = [];
+					for( iK = 1:size(k,2) )
+						y = zeros(size(tFreqs));
+						y = interp2( tFreqs, sFreqs, PS_D, tFreqs, k(iK), 'linear' );
+						h(end+1) = plot( tFreqs, y, LineStyles{iK}, 'LineWidth', LineWidth, 'color', 'b', 'DisplayName', sprintf( '%d cpd Drift', k(iK) ) );
+
+						y = zeros(size(tFreqs));
+						y = interp2( tFreqs, sFreqs, PS_DB, tFreqs, k(iK), 'linear' );
+						h(end+1) = plot( tFreqs, y, LineStyles{iK}, 'LineWidth', LineWidth, 'color', 'r', 'DisplayName', sprintf( '%d cpd Drift+blink', k(iK) ) );
+					end
+					set( legend(h), 'location', 'Southeast' );
+					set( gca, 'FontSize', FontSize, 'LineWidth', LineWidth, 'XScale', 'log', 'YScale', 'log', 'XLim', [tFreqs(2), 60], 'XTick', [10 60], 'XTickLabel', [10 60] );
+					xlabel('Temporal frequency (Hz)');
+					ylabel('Power spectral density');
+					pause(10);
+					saveas( gcf, [ destFolder, '\FV_', sbjs{iSbj}, '_withRamp', num2str(withRamp), '.fig' ] );
+					saveas( gcf, [ destFolder, '\FV_', sbjs{iSbj}, '_withRamp', num2str(withRamp), '.png' ] );
+					close(gcf);
+
+					PSD_FV.PS_D(:,:,iSbj) = PS_D;
+					PSD_FV.sFreqs = sFreqs;
+					PSD_FV.tFreqs = tFreqs;
+					PSD_FV.PS_DB(:,:,iSbj) = PS_DB;
+					PSD_FV.weighted_D.P(iSbj,:) = weighted_D.P;
+					PSD_FV.weighted_D.M(iSbj,:) = weighted_D.M;
+					PSD_FV.weighted_DB.P(iSbj,:) = weighted_DB.P;
+					PSD_FV.weighted_DB.M(iSbj,:) = weighted_DB.M;
+					PSD_FV.pCellGain = pCellGain;
+					PSD_FV.mCellGain = mCellGain;
+
+					PSD_FV.D_drift_span(iSbj) = D_drift_span;
+					PSD_FV.D_drift_mSpeed(iSbj) = D_drift_mSpeed;
+					PSD_FV.D_drift_mCurvature(iSbj) = D_drift_mCurvature;
+					PSD_FV.D_drift_varX(iSbj) = D_drift_varX;
+					PSD_FV.D_drift_varY(iSbj) = D_drift_varY;
+					PSD_FV.D_DF(iSbj) = D_DF;
+					PSD_FV.D_DFDetrended(iSbj) = D_DFDetrended;
+
+					PSD_FV.DB_drift_span(iSbj) = DB_drift_span;
+					PSD_FV.DB_drift_mSpeed(iSbj) = DB_drift_mSpeed;
+					PSD_FV.DB_drift_mCurvature(iSbj) = DB_drift_mCurvature;
+					PSD_FV.DB_drift_varX(iSbj) = DB_drift_varX;
+					PSD_FV.DB_drift_varY(iSbj) = DB_drift_varY;
+					PSD_FV.DB_DF(iSbj) = DB_DF;
+					PSD_FV.DB_DFDetrended(iSbj) = DB_DFDetrended;
+
+					PSD_FV_Indivisual(iSbj).tFreqs = tFreqs;
+					PSD_FV_Indivisual(iSbj).PS_DB = PS_DB_Individual;
+					PSD_FV_Indivisual(iSbj).PS_D = PS_D_Individual;
+				end
+
+				save( [destFolder, '\PSD_MainExp_withRamp', num2str(withRamp), '.mat'], 'PSD_FV' );
+				save( [destFolder, '\PSD_Individual_MainExp_withRamp', num2str(withRamp), '.mat'], 'PSD_FV_Indivisual' );
+			end
+
+			PS_D = PSD_FV.PS_D;
+			sFreqs = PSD_FV.sFreqs;
+			tFreqs = PSD_FV.tFreqs;
+			PS_DB = PSD_FV.PS_DB;
+			weighted_D = PSD_FV.weighted_D;
+			weighted_DB = PSD_FV.weighted_DB;
+			pCellGain = PSD_FV.pCellGain;
+			mCellGain = PSD_FV.mCellGain;
+
+			set( figure, 'NumberTitle', 'off', 'name', [ 'Mean of Population | PSD | withRamp: ', num2str(withRamp) ], 'color', 'w' );
+			pause(0.1);
+			jf = get(handle(gcf),'javaframe');
+			jf.setMaximized(1);
+			pause(0.5);
+			subplot(2,2,1);
+			colormap('hot');
+			contour( sFreqs(2:end), tFreqs(2:end), mean( PS_D(2:end,2:end,:), 3 )', 1000, 'LineStyle', 'none', 'fill', 'on' );
+			caxis( [ 0, max(max( [mean( PS_D(2:end,2:end,:), 3 ) mean( PS_DB(2:end,2:end,:), 3 )] )) ] );
+			colorbar;
+			xlabel( 'Spatial frequency (cpd)' );
+			ylabel( 'Temporal frequency (Hz)' );
+			title('Drift');
+			set( gca, 'color', 'k', 'FontSize', FontSize, 'LineWidth', LineWidth, 'XScale', 'linear', 'YScale', 'log', 'XLim', [0 30], 'YLim', [tFreqs(2), 60], 'XTick', 0:10:30, 'YTick', [1 5 10 20 40] );
+
+			subplot(2,2,2);
+			colormap('hot');
+			contour( sFreqs(2:end), tFreqs(2:end), mean( PS_DB(2:end,2:end,:), 3 )', 1000, 'LineStyle', 'none', 'fill', 'on' );
+			caxis( [ 0, max(max( [mean( PS_D(2:end,2:end,:), 3 ) mean( PS_DB(2:end,2:end,:), 3 )] )) ] );
+			colorbar;
+			xlabel( 'Spatial frequency (cpd)' );
+			ylabel( 'Temporal frequency (Hz)' );
+			title('Drift + Blink');
+			set( gca, 'color', 'k', 'FontSize', FontSize, 'LineWidth', LineWidth, 'XScale', 'log', 'YScale', 'log', 'XLim', [sFreqs(1) 30], 'YLim', [tFreqs(2), 60], 'XTick', 0:10:30, 'YTick', [1 5 10 20 40] );
+
+			subplot(2,2,3);
+			hold on;
+			h = [];
+			h(end+1) = plot( sFreqs, sum( mean( PS_D( :, 0 < tFreqs, : ), 3 ), 2 ) * (tFreqs(2) - tFreqs(1)), '-', 'LineWidth', LineWidth, 'color', 'b', 'DisplayName', 'Drift Unweighted' );
+			h(end+1) = plot( sFreqs, sum( mean( PS_DB( :, 0 < tFreqs, : ), 3 ), 2 ) * (tFreqs(2) - tFreqs(1)), '-', 'LineWidth', LineWidth, 'color', 'r', 'DisplayName', 'Drift+Blink Unweighted' );
+			h(end+1) = plot( sFreqs, mean( weighted_D.P, 1 ), '--', 'LineWidth', LineWidth, 'color', 'b', 'DisplayName', 'Drift P-cell' );
+			h(end+1) = plot( sFreqs, mean( weighted_D.M, 1 ), '-.', 'LineWidth', LineWidth, 'color', 'b', 'DisplayName', 'Drift M-cell' );
+			h(end+1) = plot( sFreqs, mean( weighted_DB.P, 1 ), '--', 'LineWidth', LineWidth, 'color', 'r', 'DisplayName', 'Drift+Blink P-cell' );
+			h(end+1) = plot( sFreqs, mean( weighted_DB.M, 1 ), '-.', 'LineWidth', LineWidth, 'color', 'r', 'DisplayName', 'Drift+Blink M-cell' );
+			set( gca, 'FontSize', FontSize, 'LineWidth', LineWidth, 'XScale', 'linear', 'YScale', 'log', 'XLim', [sFreqs(1), 30], 'XTick', 0:10:30, 'XTickLabel', 0:10:30 );
+			plot( [3 3], get(gca,'YLim'), 'k:' );
+			set( legend(h), 'location', 'Southeast' );
+			xlabel('Spatial frequency (cpd)');
+			ylabel('Power spectral density');
+			title('Non-Zero Hz Temporal Power');
+
+			subplot(2,2,4);
+			hold on;
+			k = [0 3];
+			LineStyles = {'-', '--'};
+			h = [];
+			for( iK = 1:size(k,2) )
+				y = zeros(size(tFreqs));
+				y = interp2( tFreqs, sFreqs, mean( PS_D, 3 ), tFreqs, k(iK), 'linear' );
+				h(end+1) = plot( tFreqs, y, LineStyles{iK}, 'LineWidth', LineWidth, 'color', 'b', 'DisplayName', sprintf( '%d cpd Drift', k(iK) ) );
+
+				y = zeros(size(tFreqs));
+				y = interp2( tFreqs, sFreqs, mean( PS_DB, 3 ), tFreqs, k(iK), 'linear' );
+				h(end+1) = plot( tFreqs, y, LineStyles{iK}, 'LineWidth', LineWidth, 'color', 'r', 'DisplayName', sprintf( '%d cpd Drift+blink', k(iK) ) );
+			end
+			set( legend(h), 'location', 'Southeast' );
+			set( gca, 'FontSize', FontSize, 'LineWidth', LineWidth, 'XScale', 'linear', 'YScale', 'log', 'XLim', [tFreqs(1), 60], 'XTick', 0:10:60, 'XTickLabel', 0:10:60 );
+			xlabel('Temporal frequency (Hz)');
+			ylabel('Power spectral density');
+			pause(3);
+			saveas( gcf, [ destFolder, '\FV_Population_Mean_withRamp', num2str(withRamp), '.fig' ] );
+			saveas( gcf, [ destFolder, '\FV_Population_Mean_withRamp', num2str(withRamp), '.png' ] );
+
+
+			set( figure, 'NumberTitle', 'off', 'name', [ 'Population | PSD | withRamp: ', num2str(withRamp) ], 'color', 'w' );
+			pause(0.1);
+			jf = get(handle(gcf),'javaframe');
+			jf.setMaximized(1);
+			pause(0.5);
+			
+			isLogged = true;
+			if(isLogged)
+				P.D = log10(interp2( sFreqs, 1:size(PS_D,3), weighted_D.P, 3, 1:size(PS_D,3), 'linear' ));
+				P.DB_3 = log10(interp2( sFreqs, 1:size(PS_D,3), weighted_DB.P, 3, 1:size(PS_D,3), 'linear' ));
+				P.DB_0 = log10(weighted_DB.P(:,1));
+				M.D = log10(interp2( sFreqs, 1:size(PS_D,3), weighted_D.M, 3, 1:size(PS_D,3), 'linear' ));
+				M.DB_3 = log10(interp2( sFreqs, 1:size(PS_D,3), weighted_DB.M, 3, 1:size(PS_D,3), 'linear' ));
+				M.DB_0 = log10(weighted_DB.M(:,1));
+				Unweighted.D = log10(interp2( sFreqs, 1:size(PS_D,3), reshape( sum( PS_D(:,2:end,:), 2 ) * (tFreqs(2) - tFreqs(1)), size(PS_D,1), [] )', 3, 1:size(PS_D,3), 'linear' ));
+				Unweighted.DB_3 = log10(interp2( sFreqs, 1:size(PS_D,3), reshape( sum( PS_DB(:,2:end,:), 2 ) * (tFreqs(2) - tFreqs(1)), size(PS_D,1), [] )', 3, 1:size(PS_D,3), 'linear' ));
+				Unweighted.DB_0 = log10(reshape( sum( PS_DB(1,2:end,:), 2 ) * (tFreqs(2) - tFreqs(1)), 1, [] )');
+			else
+				P.D = interp2( sFreqs, 1:size(PS_D,3), weighted_D.P, 3, 1:size(PS_D,3), 'linear' );
+				P.DB_3 = interp2( sFreqs, 1:size(PS_D,3), weighted_DB.P, 3, 1:size(PS_D,3), 'linear' );
+				P.DB_0 = weighted_DB.P(:,1);
+				M.D = interp2( sFreqs, 1:size(PS_D,3), weighted_D.M, 3, 1:size(PS_D,3), 'linear' );
+				M.DB_3 = interp2( sFreqs, 1:size(PS_D,3), weighted_DB.M, 3, 1:size(PS_D,3), 'linear' );
+				M.DB_0 = weighted_DB.M(:,1);
+				Unweighted.D = interp2( sFreqs, 1:size(PS_D,3), reshape( sum( PS_D(:,2:end,:), 2 ) * (tFreqs(2) - tFreqs(1)), size(PS_D,1), [] )', 3, 1:size(PS_D,3), 'linear' );
+				Unweighted.DB_3 = interp2( sFreqs, 1:size(PS_D,3), reshape( sum( PS_DB(:,2:end,:), 2 ) * (tFreqs(2) - tFreqs(1)), size(PS_D,1), [] )', 3, 1:size(PS_D,3), 'linear' );
+				Unweighted.DB_0 = reshape( sum( PS_DB(1,2:end,:), 2 ) * (tFreqs(2) - tFreqs(1)), 1, [] )';
+			end
+			
+			[~, pVal.P_DB_3, CI.P] = ttest( P.D, P.DB_3, 'alpha', 0.05 );	% P-cell, D_3 VS DB_3
+			[~, pVal.P_DB_0, CI.P] = ttest( P.D, P.DB_0, 'alpha', 0.05 );	% P-cell, D_3 VS DB_0
+			[~, pVal.M_DB_3, CI.P] = ttest( M.D, M.DB_3, 'alpha', 0.05 );	% M-cell, D_3 VS DB_3
+			[~, pVal.M_DB_0, CI.P] = ttest( M.D, M.DB_0, 'alpha', 0.05 );	% M-cell, D_3 VS DB_0
+			[~, pVal.U_DB_3, CI.P] = ttest( Unweighted.D, Unweighted.DB_3, 'alpha', 0.05 );	% Unweighted, D_3 VS DB_3
+			[~, pVal.U_DB_0, CI.P] = ttest( Unweighted.D, Unweighted.DB_0, 'alpha', 0.05 )	% Unweighted, D_3 VS DB_0
+			hold on; h = [];
+			h(1) = bar( 1, mean( P.D ), 0.9, 'b', 'LineStyle', 'none', 'DisplayName', 'Drift' );
+			plot( [1,1], [-1,1]*std(P.D)+mean(P.D), '-k', 'LineWidth', LineWidth );
+			h(2) = bar( 2, mean(P.DB_3), 0.9, 'r', 'LineStyle', 'none', 'DisplayName', 'Drift+Blink, 3cpd' );
+			plot( [2,2], [-1,1]*std(P.DB_3)+mean(P.DB_3), '-k', 'LineWidth', LineWidth );
+			h(3) = bar( 3, mean(P.DB_0), 0.9, 'FaceColor', [0.5 0 0], 'LineStyle', 'none', 'DisplayName', 'Drift+Blink, 0cpd' );
+			plot( [3,3], [-1,1]*std(P.DB_0)+mean(P.DB_0), '-k', 'LineWidth', LineWidth );
+			ToolKit.ShowSignificance( [1, std(P.D)+mean(P.D)], [2, std(P.DB_3)+mean(P.DB_3)], pVal.P_DB_3, 0.02, true, 'FontSize', 24, 'LineWidth', 2 );
+			ToolKit.ShowSignificance( [1, std(P.D)+mean(P.D)], [3, std(P.DB_0)+mean(P.DB_0)], pVal.P_DB_0, 0.02, true, 'FontSize', 24, 'LineWidth', 2 );
+
+			bar( 5, mean( M.D ), 0.9, 'b', 'LineStyle', 'none', 'DisplayName', 'Drift' );
+			plot( [5,5], [-1,1]*std(M.D)+mean(M.D), '-k', 'LineWidth', LineWidth );
+			bar( 6, mean(M.DB_3), 0.9, 'r', 'LineStyle', 'none', 'DisplayName', 'Drift+Blink, 3cpd' );
+			plot( [6,6], [-1,1]*std(M.DB_3)+mean(M.DB_3), '-k', 'LineWidth', LineWidth );
+			bar( 7, mean(M.DB_0), 0.9, 'FaceColor', [0.5 0 0], 'LineStyle', 'none', 'DisplayName', 'Drift+Blink, 0cpd' );
+			plot( [7,7], [-1,1]*std(M.DB_0)+mean(M.DB_0), '-k', 'LineWidth', LineWidth );
+			ToolKit.ShowSignificance( [5, std(M.D)+mean(M.D)], [6, std(M.DB_3)+mean(M.DB_3)], pVal.M_DB_3, 0.02, true, 'FontSize', 24, 'LineWidth', 2 );
+			ToolKit.ShowSignificance( [5, std(M.D)+mean(M.D)], [7, std(M.DB_0)+mean(M.DB_0)], pVal.M_DB_0, 0.02, true, 'FontSize', 24, 'LineWidth', 2 );
+
+			bar( 9, mean( Unweighted.D ), 0.9, 'b', 'LineStyle', 'none', 'DisplayName', 'Drift' );
+			plot( [9,9], [-1,1]*std(Unweighted.D)+mean(Unweighted.D), '-k', 'LineWidth', LineWidth );
+			bar( 10, mean(Unweighted.DB_3), 0.9, 'r', 'LineStyle', 'none', 'DisplayName', 'Drift+Blink, 3cpd' );
+			plot( [10,10], [-1,1]*std(Unweighted.DB_3)+mean(Unweighted.DB_3), '-k', 'LineWidth', LineWidth );
+			bar( 11, mean(Unweighted.DB_0), 0.9, 'FaceColor', [0.5 0 0], 'LineStyle', 'none', 'DisplayName', 'Drift+Blink, 0cpd' );
+			plot( [11,11], [-1,1]*std(Unweighted.DB_0)+mean(Unweighted.DB_0), '-k', 'LineWidth', LineWidth );
+			ToolKit.ShowSignificance( [9, std(Unweighted.D)+mean(Unweighted.D)], [10, std(Unweighted.DB_3)+mean(Unweighted.DB_3)], pVal.U_DB_3, 0.02, true, 'FontSize', 24, 'LineWidth', 2 );
+			ToolKit.ShowSignificance( [9, std(Unweighted.D)+mean(Unweighted.D)], [11, std(Unweighted.DB_0)+mean(Unweighted.DB_0)], pVal.U_DB_0, 0.02, true, 'FontSize', 24, 'LineWidth', 2 );
+
+			set( gca, 'XLim', [-1 13], 'XTick', [2, 6, 10], 'XTickLabel', { 'P Cell', 'M Cell', 'Unweighted' }, 'XTickLabelRotation', 10, 'YScale', 'log', 'FontSize', FontSize, 'LineWidth', LineWidth, 'box', 'off' );
+			if(isLogged)
+				set( gca, 'YScale', 'linear' );
+			end
 			title( 'PSD', 'FontSize', 20 );
 			ylabel('PSD');
 			set( legend(h), 'location', 'northeastout', 'fontsize', 18 );
@@ -4607,32 +6385,155 @@ classdef BlinkTransient < handle
 			end
 
 			subfolders = ToolKit.ListFolders(folder);
-			for( iFolder = 1 : size(subfolders,1) )
-				BlinkTransient.EIS2Mat( ToolKit.RMEndSpaces( subfolders(iFolder,:) ), sRate, has2Tones, reverse2Tones );
+			for( iFolder = 1 : size(subfolders,2) )
+				BlinkTransient.EIS2Mat( subfolders{iFolder}, sRate, has2Tones, reverse2Tones );
 			end
 		end
 
 
-		function EIS2Mat_Simulated( folder, sRate )
+		function EIS2Mat_BlinkDist( folder, sRate )
 			if( nargin() < 2 || isempty(sRate) ) sRate = 1000; end
 
 			if( folder(end) == '\' || folder(end) == '/' ) folder(end) = []; end
 			fprintf('%s\n', folder);
 			if( size(folder,2) > 10 && strcmpi( folder(end-10:end), 'calibration' ) ) return; end
 			
-			if( 0&& exist( [folder,'/Trials.mat'], 'file' ) == 2 )%&& isempty(strfind(folder,'DDPI')) )
+			if( exist( [folder,'/Trials.mat'], 'file' ) == 2 )
 				delete( [folder,'/Trials.mat'] );
-				% return;
-				load( [folder, '/Trials.mat'] );
-				if( ~isfield( Trials, 'sRate' ) )
-					[Trials.sRate] = deal(sRate);
-					% save( [ folder, '/', 'Trials.mat' ], 'Trials' );
+				return;
+			end
+
+			eisFNs = dir( [folder, '/*.eis'] );
+			if( ~isempty(eisFNs) && exist( [folder,'/Trials.mat'], 'file' ) ~= 2 )
+                list = [];
+				list = eis_readData([], 'x');
+				list = eis_readData(list, 'y');
+				list = eis_readData(list, 'stream', 0, 'double');
+				list = eis_readData(list, 'stream', 1, 'double');
+				list = eis_readData(list, 'trigger', 'blink');
+				list = eis_readData(list, 'trigger', 'notrack');
+				usrVars = { 'trialType',...
+							'tTrialStart',...
+							'tFpOn',...
+							'tBlinkBeepOn',...
+							'beepFreq',...
+							'beepDur',...
+							'expName',...
+							'sbjName',...
+							'screenR',...
+							'screenWPix',...
+							'screenHPix',...
+							'screenWmm',...
+							'screenHmm',...
+							'screenDmm',...
+							'bgnLuminance' };
+				for( i = 1 : size(usrVars,2) )
+					list = eis_readData(list, 'uservar', usrVars{i} );
 				end
+				data = eis_eisdir2mat(folder,list);
+
+				for( iTrial = size(data.user,1) : -1 : 1 )
+					trial = createTrial( iTrial, data.x{iTrial}, data.y{iTrial}, data.triggers{iTrial}.blink, data.triggers{iTrial}.notrack, ones(1,size(data.x{iTrial},2)), [], sRate );
+					trial.notracks.start( trial.notracks.duration / sRate * 1000 < 5 ) = [];
+					trial.notracks.duration( trial.notracks.duration / sRate * 1000 < 5 ) = [];
+					trial = findSaccades( trial, 'minvel', 180, 'minsa', 30 );	% min arc
+					trial = findMicrosaccades( trial, 'minvel', 180, 'minmsa', 3, 'maxmsa', 30 );	% min arc
+			  		trial = findDrifts(trial);
+
+			  		% conbine blinks with interval shorter than 15ms
+		  			iBlink = 1;
+		  			while( iBlink < size(trial.blinks.start,2) )
+		  				if( ( trial.blinks.start(iBlink+1) - ( trial.blinks.start(iBlink) + trial.blinks.duration(iBlink)-1 ) ) / sRate * 1000 < 15 )
+		  					trial.blinks.duration(iBlink) = trial.blinks.start(iBlink+1) + trial.blinks.duration(iBlink+1) - trial.blinks.start(iBlink);
+		  					trial.blinks.start(iBlink+1) = [];
+		  					trial.blinks.duration(iBlink+1) = [];
+		  				else
+		  					iBlink = iBlink + 1;
+		  				end
+		  			end
+
+		  			% remove blinks with duration shorter than 15ms
+			  		trial.blinks.start( trial.blinks.duration < 15/1000*sRate ) = [];
+			  		trial.blinks.duration( trial.blinks.duration < 15/1000*sRate ) = [];
+
+			  		if( ~isempty( strfind( folder, 'DDPI' ) ) )
+			  			% merge notracks right before & after a blink into that blink
+			  			blinks = trial.blinks;
+				  		notracks = trial.notracks;
+				  		for( iBlink = 1 : size(trial.blinks.start,2) )
+				  			for( iNotrack = 1 : size(trial.notracks.start,2) )
+				  				dif1 = ( trial.blinks.start(iBlink) - ( trial.notracks.start(iNotrack) + trial.notracks.duration(iNotrack)-1 ) ) / sRate * 1000;
+				  				if( 0 < dif1 && dif1 < 50 )
+				  					blinks.start(iBlink) = trial.notracks.start(iNotrack);
+				  					blinks.duration(iBlink) = trial.blinks.start(iBlink) + trial.blinks.duration(iBlink) - trial.notracks.start(iNotrack);
+				  					notracks.start(iNotrack) = NaN;
+				  				end
+				  				dif2 = ( trial.notracks.start(iNotrack) - ( trial.blinks.start(iBlink) + trial.blinks.duration(iBlink)-1 ) ) / sRate * 1000;
+				  				if(0 < dif2 && dif2 < 50 )
+				  					blinks.duration(iBlink) = trial.notracks.start(iNotrack) + trial.notracks.duration(iNotrack) - trial.blinks.start(iBlink);
+				  					notracks.start(iNotrack) = NaN;
+				  				end
+				  			end
+				  		end
+				  		trial.blinks = blinks;
+			  			notracks.duration( isnan( notracks.start ) ) = [];
+			  			notracks.start( isnan( notracks.start ) ) = [];
+			  			trial.notracks = notracks;
+				  	end
+
+				  	% conbine blinks with intervals shorter than 15ms
+		  			iBlink = 1;
+		  			while( iBlink < size(trial.blinks.start,2) )
+		  				if( ( trial.blinks.start(iBlink+1) - ( trial.blinks.start(iBlink) + trial.blinks.duration(iBlink)-1 ) ) / sRate * 1000 < 15 )
+		  					trial.blinks.duration(iBlink) = trial.blinks.start(iBlink+1) + trial.blinks.duration(iBlink+1) - trial.blinks.start(iBlink);
+		  					trial.blinks.start(iBlink+1) = [];
+		  					trial.blinks.duration(iBlink+1) = [];
+		  				else
+		  					iBlink = iBlink + 1;
+		  				end
+		  			end
+
+			    	varNames = fieldnames(data.user{iTrial});
+				    for i = 1 : size(varNames,1)
+				        trial.(varNames{i}) = data.user{iTrial}.(varNames{i});
+				    end
+
+				    trial.trialType = char(trial.trialType);
+				    Trials(iTrial) = trial;
+				end
+
 				Trials = orderfields(Trials);
 				save( [ folder, '/', 'Trials.mat' ], 'Trials' );
-			else
-				delete( [folder,'/Trials.mat'] );
-				% return;
+			end
+
+			subfolders = ToolKit.ListFolders(folder);
+			for( iFolder = 1 : size(subfolders,2) )
+				BlinkTransient.EIS2Mat_BlinkDist( subfolders{iFolder}, sRate );
+			end
+		end
+
+
+		function EIS2Mat_SimulatedV1( folder, sRate )		%% simulated blinks during stimulus or not, no beep signal
+			if( nargin() < 2 || isempty(sRate) ) sRate = 1000; end
+
+			if( folder(end) == '\' || folder(end) == '/' ) folder(end) = []; end
+			fprintf('%s\n', folder);
+			if( size(folder,2) > 10 && strcmpi( folder(end-10:end), 'calibration' ) ) return; end
+			
+			if( exist( [folder,'/Trials.mat'], 'file' ) == 2 )%&& isempty(strfind(folder,'DDPI')) )
+				% delete( [folder,'/Trials.mat'] );
+			% elseif(false)	
+			% 	% return;
+			% 	load( [folder, '/Trials.mat'] );
+			% 	if( ~isfield( Trials, 'sRate' ) )
+			% 		[Trials.sRate] = deal(sRate);
+			% 		% save( [ folder, '/', 'Trials.mat' ], 'Trials' );
+			% 	end
+			% 	Trials = orderfields(Trials);
+			% 	save( [ folder, '/', 'Trials.mat' ], 'Trials' );
+			% % else
+			% 	delete( [folder,'/Trials.mat'] );
+				return;
 			end
 			% return;
 
@@ -4697,7 +6598,7 @@ classdef BlinkTransient < handle
 				    trial.trialType = char(trial.trialType);
 
 				    Trials(iTrial) = trial;
-				end 
+				end
 
 				index = false(1,size(data.user,1));
 				for( iTrial = 1 : size(Trials,2) )
@@ -4711,11 +6612,24 @@ classdef BlinkTransient < handle
 			  		end
 			  		if( Trials(iTrial).tSimBlinkOn > 0 )
 				  		Trials(iTrial).tBlinkBeepOn = Trials(iTrial).tRampOn + 500;
-				  		Trials(iTrial).blinks.start = [Trials(iTrial).blinks.start, round( (Trials(iTrial).tSimBlinkOn - Trials(iTrial).tTrialStart) / 1000 * Trials(iTrial).sRate + 1 ) ];
-				  		Trials(iTrial).blinks.duration = [Trials(iTrial).blinks.duration, round( ( Trials(iTrial).tSimBlinkOff - Trials(iTrial).tSimBlinkOn ) / 1000 * Trials(iTrial).sRate ) ];
+				  		t = round( (Trials(iTrial).tSimBlinkOn - Trials(iTrial).tTrialStart) / 1000 * Trials(iTrial).sRate + 1 );
+				  		Trials(iTrial).blinks.start = [ Trials(iTrial).blinks.start, t ];
+				  		dur = round( ( Trials(iTrial).tSimBlinkOff - Trials(iTrial).tSimBlinkOn ) / 1000 * Trials(iTrial).sRate );
+				  		Trials(iTrial).blinks.duration = [ Trials(iTrial).blinks.duration, dur ];
 				  		[~,I] = sort( Trials(iTrial).blinks.start );
 				  		Trials(iTrial).blinks.start = Trials(iTrial).blinks.start(I);
 				  		Trials(iTrial).blinks.duration = Trials(iTrial).blinks.duration(I);
+
+				  		tmpIndex = t <= Trials(iTrial).microsaccades.start & Trials(iTrial).microsaccades.start + Trials(iTrial).microsaccades.duration <= t + dur;
+				  		Trials(iTrial).microsaccades.start(tmpIndex) = [];
+				  		Trials(iTrial).microsaccades.duration(tmpIndex) = [];
+				  		Trials(iTrial).microsaccades.amplitude(tmpIndex) = [];
+				  		Trials(iTrial).microsaccades.angle(tmpIndex) = [];
+				  		tmpIndex = t <= Trials(iTrial).saccades.start & Trials(iTrial).saccades.start + Trials(iTrial).saccades.duration <= t + dur;
+				  		Trials(iTrial).saccades.start(tmpIndex) = [];
+				  		Trials(iTrial).saccades.duration(tmpIndex) = [];
+				  		Trials(iTrial).saccades.amplitude(tmpIndex) = [];
+				  		Trials(iTrial).saccades.angle(tmpIndex) = [];
 				  	else
 				  		Trials(iTrial).tBlinkBeepOn = Trials(iTrial).tRampOn - 700;
 				  		Trials(iTrial).blinks.start = [Trials(iTrial).blinks.start, round( (Trials(iTrial).tBlinkBeepOn - Trials(iTrial).tTrialStart + 300) / 1000 * Trials(iTrial).sRate + 1 ) ];
@@ -4733,13 +6647,140 @@ classdef BlinkTransient < handle
 			end
 
 			subfolders = ToolKit.ListFolders(folder);
-			for( iFolder = 1 : size(subfolders,1) )
-				BlinkTransient.EIS2Mat_Simulated( ToolKit.RMEndSpaces( subfolders(iFolder,:) ), sRate );
+			for( iFolder = 1 : size(subfolders,2) )
+				BlinkTransient.EIS2Mat_SimulatedV1( subfolders{iFolder}, sRate );
+			end
+		end
+
+		function EIS2Mat_SimulatedV3( folder, sRate )
+			if( nargin() < 2 || isempty(sRate) ) sRate = 1000; end
+
+			if( folder(end) == '\' || folder(end) == '/' ) folder(end) = []; end
+			fprintf('%s\n', folder);
+			if( size(folder,2) > 10 && strcmpi( folder(end-10:end), 'calibration' ) ) return; end
+			
+			if( exist( [folder,'/Trials.mat'], 'file' ) == 2 )
+				% delete( [folder,'/Trials.mat'] );
+				return;
+			end
+
+			eisFNs = dir( [folder, '/*.eis'] );
+			if( ~isempty(eisFNs) && exist( [folder,'/Trials.mat'], 'file' ) ~= 2 )
+                list = [];
+				list = eis_readData([], 'x');
+				list = eis_readData(list, 'y');
+				list = eis_readData(list, 'stream', 0, 'double');
+				list = eis_readData(list, 'stream', 1, 'double');
+				list = eis_readData(list, 'trigger', 'blink');
+				list = eis_readData(list, 'trigger', 'notrack');
+				usrVars = { 'trialType',...
+							'tTrialStart',...
+							'tFpOn',...
+							'tRampOn',...
+							'tPlateauOn',...
+							'tMaskOn',...
+							'tMaskOff',...
+							'tResponse',...
+							'response',...
+							'tSimBlinkOn',...
+							'tSimBlinkOff',...
+							'gaborSpFreq',...
+							'gaborOri',...
+							'gaborStdPix',...
+							'gaborWPix',...
+							'gaborAmp',...
+							'expName',...
+							'sbjName',...
+							'screenR',...
+							'screenWPix',...
+							'screenHPix',...
+							'screenWmm',...
+							'screenHmm',...
+							'screenDmm',...
+							'bgnLuminance' };
+				for( i = 1 : size(usrVars,2) )
+					list = eis_readData(list, 'uservar', usrVars{i} );
+				end
+				data = eis_eisdir2mat(folder,list);
+
+				for( iTrial = size(data.user,1) : -1 : 1 )
+					trial = createTrial( iTrial, data.x{iTrial}, data.y{iTrial}, data.triggers{iTrial}.blink, data.triggers{iTrial}.notrack, ones(1,size(data.x{iTrial},2)), [], sRate );
+					% trial = createTrial( iTrial, [], [], [], [], 0 );
+					trial.notracks.start( trial.notracks.duration / sRate * 1000 < 5 ) = [];
+					trial.notracks.duration( trial.notracks.duration / sRate * 1000 < 5 ) = [];
+					trial = findSaccades( trial, 'minvel', 180, 'minsa', 30 );	% min arc
+					trial = findMicrosaccades( trial, 'minvel', 180, 'minmsa', 3, 'maxmsa', 30 );	% min arc
+			  		trial = findDrifts(trial);
+
+			    	trial.evntRenderTimes = data.stream00{iTrial};
+			    	trial.evntRenderIFrames = data.stream01{iTrial};
+			    	% trial.postSwapTimes = data.stream02{iTrial};
+			    	% trial.postSwapIFrames = data.stream03{iTrial};
+
+			    	varNames = fieldnames(data.user{iTrial});
+				    for i = 1 : size(varNames,1)
+				        trial.(varNames{i}) = data.user{iTrial}.(varNames{i});
+				    end
+
+				    trial.trialType = char(trial.trialType);
+
+				    Trials(iTrial) = trial;
+				end
+
+				index = false(1,size(data.user,1));
+				for( iTrial = 1 : size(Trials,2) )
+					Trials(iTrial).tSimBlinkOn = double( Trials(iTrial).tSimBlinkOn );
+					Trials(iTrial).tSimBlinkOff = double( Trials(iTrial).tSimBlinkOff );
+					blinks = Trials(iTrial).blinks;
+			  		if( Trials(iTrial).tSimBlinkOn > 0 && Trials(iTrial).tSimBlinkOn < Trials(iTrial).tPlateauOn ||...
+			  			any( Trials(iTrial).tRampOn - Trials(iTrial).tTrialStart < (blinks.start + blinks.duration-2) / Trials(iTrial).sRate*1000 & (blinks.start-1) / Trials(iTrial).sRate * 1000 < Trials(iTrial).tMaskOn - Trials(iTrial).tTrialStart ) )
+			  			index(iTrial) = true;
+			  			continue;
+			  		end
+			  		if( Trials(iTrial).tSimBlinkOn > 0 )
+				  		Trials(iTrial).tBlinkBeepOn = Trials(iTrial).tRampOn + 1000;
+				  		t = round( (Trials(iTrial).tSimBlinkOn - Trials(iTrial).tTrialStart) / 1000 * Trials(iTrial).sRate + 1 );
+				  		Trials(iTrial).blinks.start = [ Trials(iTrial).blinks.start, t ];
+				  		dur = round( ( Trials(iTrial).tSimBlinkOff - Trials(iTrial).tSimBlinkOn ) / 1000 * Trials(iTrial).sRate );
+				  		Trials(iTrial).blinks.duration = [ Trials(iTrial).blinks.duration, dur ];
+				  		[~,I] = sort( Trials(iTrial).blinks.start );
+				  		Trials(iTrial).blinks.start = Trials(iTrial).blinks.start(I);
+				  		Trials(iTrial).blinks.duration = Trials(iTrial).blinks.duration(I);
+
+				  		tmpIndex = t <= Trials(iTrial).microsaccades.start & Trials(iTrial).microsaccades.start + Trials(iTrial).microsaccades.duration <= t + dur;
+				  		Trials(iTrial).microsaccades.start(tmpIndex) = [];
+				  		Trials(iTrial).microsaccades.duration(tmpIndex) = [];
+				  		Trials(iTrial).microsaccades.amplitude(tmpIndex) = [];
+				  		Trials(iTrial).microsaccades.angle(tmpIndex) = [];
+				  		tmpIndex = t <= Trials(iTrial).saccades.start & Trials(iTrial).saccades.start + Trials(iTrial).saccades.duration <= t + dur;
+				  		Trials(iTrial).saccades.start(tmpIndex) = [];
+				  		Trials(iTrial).saccades.duration(tmpIndex) = [];
+				  		Trials(iTrial).saccades.amplitude(tmpIndex) = [];
+				  		Trials(iTrial).saccades.angle(tmpIndex) = [];
+				  	else
+				  		Trials(iTrial).tBlinkBeepOn = Trials(iTrial).tRampOn - 700;
+				  		Trials(iTrial).blinks.start = [Trials(iTrial).blinks.start, round( (Trials(iTrial).tBlinkBeepOn - Trials(iTrial).tTrialStart + 300) / 1000 * Trials(iTrial).sRate + 1 ) ];
+				  		Trials(iTrial).blinks.duration = [Trials(iTrial).blinks.duration, round( 150 / 1000 * Trials(iTrial).sRate ) ];
+				  		[~,I] = sort( Trials(iTrial).blinks.start );
+				  		Trials(iTrial).blinks.start = Trials(iTrial).blinks.start(I);
+				  		Trials(iTrial).blinks.duration = Trials(iTrial).blinks.duration(I);
+				  	end
+				end
+				Trials(index) = [];
+
+				Trials = orderfields(Trials);
+				save( [ folder, '/', 'Trials.mat' ], 'Trials' );
+				% delete( [ folder, '/', folder( find( folder == '/' | folder == '\', 1, 'last' ) + 1 : end ), '.mat' ] );
+			end
+
+			subfolders = ToolKit.ListFolders(folder);
+			for( iFolder = 1 : size(subfolders,2) )
+				BlinkTransient.EIS2Mat_SimulatedV3( subfolders{iFolder}, sRate );
 			end
 		end
 
 
-		function EIS2Mat_SimulatedV2( folder, sRate )
+		function EIS2Mat_SimulatedV2( folder, sRate )	%% simulated blinks either during fixation or during stimulus, with a beep signal
 			if( nargin() < 2 || isempty(sRate) ) sRate = 1000; end
 
 			if( folder(end) == '\' || folder(end) == '/' ) folder(end) = []; end
@@ -4850,8 +6891,8 @@ classdef BlinkTransient < handle
 			end
 
 			subfolders = ToolKit.ListFolders(folder);
-			for( iFolder = 1 : size(subfolders,1) )
-				BlinkTransient.EIS2Mat_SimulatedV2( ToolKit.RMEndSpaces( subfolders(iFolder,:) ), sRate );
+			for( iFolder = 1 : size(subfolders,2) )
+				BlinkTransient.EIS2Mat_SimulatedV2( subfolders{iFolder}, sRate );
 			end
 		end
 
@@ -4903,14 +6944,14 @@ classdef BlinkTransient < handle
 				end
 			end
 			subfolders = ToolKit.ListFolders(folder);
-			index =  false( size(subfolders,1), 1 ) ;
-			for( iFolder = 1 : size(subfolders,1) )
-				if( strcmp( subfolders( iFolder, find( subfolders(iFolder,:) == '/' | subfolders(iFolder,:) == '\', 1, 'last' ) + (1:3) ), 'X. ' ) ) index(iFolder) = 1; end
+			index =  false( 1, size(subfolders,2) ) ;
+			for( iFolder = 1 : size(subfolders,2) )
+				if( strcmp( subfolders{iFolder}( find( subfolders{iFolder} == '/' | subfolders{iFolder} == '\', 1, 'last' ) + (1:3) ), 'X. ' ) ) index(iFolder) = 1; end
 			end
-			subfolders(index,:) = [];
+			subfolders(index) = [];
 
-			for( iFolder = size(subfolders,1) : -1 : 1 )
-				load( [ ToolKit.RMEndSpaces(subfolders(iFolder,:)), '/Trials.mat' ], 'Trials' );
+			for( iFolder = size(subfolders,2) : -1 : 1 )
+				load( [ subfolders{iFolder}, '/Trials.mat' ], 'Trials' );
 				VT = Trials( [Trials.trialType] == 'c' | [Trials.trialType] == 'e' );
 				if( isfield( VT, 'sRate' ) )
 					sRate = VT(1).sRate;
@@ -4923,7 +6964,7 @@ classdef BlinkTransient < handle
 				tStart = 0;%-1500;	% start time relative to tAlignEvent
 
 				% tirals only with drifts
-				Data4Blinks(iFolder).sessionName = subfolders( iFolder, find( subfolders(iFolder,:) == '/' | subfolders(iFolder,:) == '\', 1, 'last' ) + 1 : end );
+				Data4Blinks(iFolder).sessionName = subfolders{iFolder}( find( subfolders{iFolder} == '/' | subfolders{iFolder} == '\', 1, 'last' ) + 1 : end );
 				Data4Blinks(iFolder).trialsWithoutBlink = VT;
 				index = false(size(VT));
 				for( i = 1 : size(VT,2) )
@@ -4957,7 +6998,7 @@ classdef BlinkTransient < handle
 		end
 
 		function LabeledData4Blinks = GetLabeledTrials4Blinks( folder, tAlignEvent, tOffset, tLBEvent4Blink, tLBOffset4Blink, tUBOffset4Blink )
-			%% tAlignEvent:			hasMicrosac/hasSac is true oly if a microsaccade/saccade happens after the event specified by tAlignEvent
+			%% tAlignEvent:			hasMicrosac/hasSac is true only if a microsaccade/saccade happens after the event specified by tAlignEvent
 			%  tOffset:				offset regarding tAlignEvent
 			%  tLBEvent4Blink:		hasBlink is true only if a blink happens after tLBEvent4Blink
 			%  tLBOffset4Blink:		offset regarding tLBEvent4Blink
@@ -4973,15 +7014,15 @@ classdef BlinkTransient < handle
 			LabeledData4Blinks = [];
 			if( exist( [folder,'/LabeledData4Blinks.mat'], 'file' ) == 2 )	delete( [folder,'/LabeledData4Blinks.mat'] ); end
 			subfolders = ToolKit.ListFolders(folder);
-			index =  false( size(subfolders,1), 1 ) ;
-			for( iFolder = 1 : size(subfolders,1) )
-				if( strcmp( subfolders( iFolder, find( subfolders(iFolder,:) == '/' | subfolders(iFolder,:) == '\', 1, 'last' ) + (1:3) ), 'X. ' ) ) index(iFolder) = 1; end
+			index =  false( 1, size(subfolders,2) ) ;
+			for( iFolder = 1 : size(subfolders,2) )
+				if( strcmp( subfolders{iFolder}( find( subfolders{iFolder} == '/' | subfolders{iFolder} == '\', 1, 'last' ) + (1:3) ), 'X. ' ) ) index(iFolder) = 1; end
 			end
-			subfolders(index,:) = [];
+			subfolders(index) = [];
 
-			for( iFolder = size(subfolders,1) : -1 : 1 )
-				LabeledData4Blinks(iFolder).sessionName = subfolders( iFolder, find( subfolders(iFolder,:) == '/' | subfolders(iFolder,:) == '\', 1, 'last' ) + 1 : end );
-				load( [ ToolKit.RMEndSpaces(subfolders(iFolder,:)), '/Trials.mat' ], 'Trials' );
+			for( iFolder = size(subfolders,2) : -1 : 1 )
+				LabeledData4Blinks(iFolder).sessionName = subfolders{iFolder}( find( subfolders{iFolder} == '/' | subfolders{iFolder} == '\', 1, 'last' ) + 1 : end );
+				load( [ subfolders{iFolder}, '/Trials.mat' ], 'Trials' );
 				LabeledData4Blinks(iFolder).trials = Trials( [Trials.trialType] == 'c' | [Trials.trialType] == 'e' );
 				if( isfield( Trials, 'sRate' ) )
 					sRate = Trials(1).sRate;
@@ -5009,7 +7050,7 @@ classdef BlinkTransient < handle
 							sum( ( LabeledData4Blinks(iFolder).trials(iTrial).blinks.start -1 ) /sRate * 1000 > LabeledData4Blinks(iFolder).trials(iTrial).tFpOn - LabeledData4Blinks(iFolder).trials(iTrial).tTrialStart & (LabeledData4Blinks(iFolder).trials(iTrial).blinks.start + LabeledData4Blinks(iFolder).trials(iTrial).blinks.duration - 2)/sRate*1000 < tUpper ) == 1 &&...
 							any( LabeledData4Blinks(iFolder).trials(iTrial).(tLBEvent4Blink) + tLBOffset4Blink - LabeledData4Blinks(iFolder).trials(iTrial).tTrialStart <= ( LabeledData4Blinks(iFolder).trials(iTrial).blinks.start -1 ) /sRate * 1000 &...
 							    (LabeledData4Blinks(iFolder).trials(iTrial).blinks.start + LabeledData4Blinks(iFolder).trials(iTrial).blinks.duration - 2)/sRate*1000 <= tUpper + tUBOffset4Blink ) )
-						% start 1000ms after ramp on, end 300ms before mask on
+						% start tLBOffset4Blink after tLBEvent4Blink, end tUBOffset4Blink after tUpper (earlier of tResponse and tMaskOn)
 						LabeledData4Blinks(iFolder).trials(iTrial).hasBlink = true;
 
 					else
@@ -5069,19 +7110,19 @@ classdef BlinkTransient < handle
 				load( [folder,'/Data4Blinks.mat'], 'Data4Blinks' );
 			else
 				subfolders = ToolKit.ListFolders(folder);
-				index =  false( size(subfolders,1), 1 ) ;
-				for( iFolder = 1 : size(subfolders,1) )
-					if( sum( subfolders( iFolder, find( subfolders(iFolder,:) == '/' | subfolders(iFolder,:) == '\', 1, 'last' ) + 1 : end ) == '-' ) ~= 2 ) index(iFolder) = 1; end
+				index =  false( 1, size(subfolders,2) ) ;
+				for( iFolder = 1 : size(subfolders,2) )
+					if( sum( subfolders{iFolder}( find( subfolders{iFolder} == '/' | subfolders{iFolder} == '\', 1, 'last' ) + 1 : end ) == '-' ) ~= 2 ) index(iFolder) = 1; end
 				end
-				% subfolders(index,:) = [];
+				% subfolders(index) = [];
 
-				for( iFolder = size(subfolders,1) : -1 : 1 )
-					load( [ ToolKit.RMEndSpaces(subfolders(iFolder,:)), '/Trials.mat' ], 'Trials' );
+				for( iFolder = size(subfolders,2) : -1 : 1 )
+					load( [ subfolders{iFolder}, '/Trials.mat' ], 'Trials' );
 					VT = Trials( [Trials.trialType] == 'c' | [Trials.trialType] == 'e' );
 					VT( [VT.tFpOn] < 0 | [VT.tBlinkBeepOn] < 0 | [VT.tRampOn] < 0 | [VT.tPlateauOn] < 0 | [VT.tResponse] < 0 ) = [];
 
 					% tirals blink beep during fixation
-					Data4Blinks(iFolder).sessionName = subfolders( iFolder, find( subfolders(iFolder,:) == '/' | subfolders(iFolder,:) == '\', 1, 'last' ) + 1 : end );
+					Data4Blinks(iFolder).sessionName = subfolders{iFolder}( find( subfolders{iFolder} == '/' | subfolders{iFolder} == '\', 1, 'last' ) + 1 : end );
 					Data4Blinks(iFolder).trialsWithoutBlink = VT( [VT.tBlinkBeepOn] < [VT.tRampOn] );
 
 					% trials only with blinks
@@ -5384,12 +7425,19 @@ classdef BlinkTransient < handle
 		end
 
 
-		function FixLevelEffect( sbj, folder, groups, hasMicrosac, hasSac, isNewFigure, reverse2Tones, isAND )
+		function [nBlink, ratioBlink, nNoBlink, ratioNoBlink, pVal, nBlinkLeft, hitBlinkLeft, faBlinkRight, nNoBlinkLeft, hitNoBlinkLeft, faNoBlinkRight] = FixLevelEffect( sbj, folder, groups, hasMicrosac, hasSac, isNewFigure, reverse2Tones, isAND )
 			%% groups:					cell array, each element defines the indices of one data group
 			%  hasMicrosac:				whether trials contain microsaccades (<30 arc mins); false by default; empty or NaN mean don't care
 			%  hasSac:					whether trials contain saccades (>30 arc mins); false by default; empty or NaN mean don't care
 			%  reverse2Tones:			assign true for the paradigm where lower tone signaling later report and higher tone signaling immediate report
 			%  isAND:					whether apply AND between hasMicrosac and hasSac, if false then apply OR between them; true by default
+
+			%  nBlinkLeft:				number of blink trials in which grating oriented anti-clockwise from vertical
+			%  hitBlinkLeft:			hit rate of blink trials in which grating oriented anti-clockwise from Vertical (report left when it's left)
+			%  faBlinkRight:			false alarm rate of blink trials in which grating oriented anti-clockwise from vertical (report left when it's right)
+			%  nNoBlinkLeft:			number of no blink trials in which grating oriented anti-clockwise from vertical
+			%  hitNoBlinkLeft:			hit rate of no blink trials in which grating oriented anti-clockwise from Vertical (report left when it's left)
+			%  faNoBlinkRight:			false alarm rate of no blink trials in which grating oriented anti-clockwise from vertical (report left when it's right)
 
 
 			if( nargin() < 4 ) hasMicrosac = false; end
@@ -5540,6 +7588,25 @@ classdef BlinkTransient < handle
 			index = [points(2,:).nTrials] ~= 0;
 			n2 = sum([points(2,index).nTrials]);
 			P2 = [points(2,index).crctRate] * [points(2,index).nTrials]' / n2;
+			nBlink = n1;
+			nNoBlink = n2;
+			ratioBlink = P1;
+			ratioNoBlink = P2;
+			if(nBlink == 0)
+				ratioBlink = 0;
+			end
+			if(nNoBlink == 0)
+				ratioNoBlink = 0;
+			end
+
+			trials{2} = [data.trialsWithoutBlink];
+			trials{1} = [data.trialsWithBlink];
+			nBlinkLeft = sum( [trials{1}.gaborOri] == 45 );
+			hitBlinkLeft = sum( [trials{1}.trialType] == 'c' & [trials{1}.gaborOri] == 45 ) / nBlinkLeft;
+			faBlinkRight = sum( [trials{1}.trialType] == 'e' & [trials{1}.gaborOri] == -45 ) / (nBlink - nBlinkLeft);
+			nNoBlinkLeft = sum( [trials{2}.gaborOri] == 45 );
+			hitNoBlinkLeft = sum( [trials{2}.trialType] == 'c' & [trials{2}.gaborOri] == 45 ) / nNoBlinkLeft;
+			faNoBlinkRight = sum( [trials{2}.trialType] == 'e' & [trials{2}.gaborOri] == -45 ) / (nNoBlink - nNoBlinkLeft);
 
 			% correct for continuity
 			if( P1 < P2 )
@@ -5553,6 +7620,10 @@ classdef BlinkTransient < handle
 			P = ( n1*P1 + n2*P2 ) / (n1 + n2);
 			sd = sqrt( P*(1-P) * ( 1/n1 + 1/n2 ) );
 			p = ( 1 - normcdf( abs(P1-P2), 0, sd ) ) * 2;
+			pVal = p;
+			if( nBlink == 0 || nNoBlink == 0 )
+				pVal = NaN;
+			end
 
 			h(1) = plot( 1 : size(groups,2), [points(1,:).crctRate], 'ro', 'MarkerSize', 8, 'LineWidth', 2, 'DisplayName', sprintf( 'b %d', sum([points(1,:).nTrials]) ) );
 			plot( 1 : size(groups,2), [points(1,:).crctRate], 'r--', 'MarkerSize', 8, 'LineWidth', 1 );
@@ -6404,11 +8475,7 @@ classdef BlinkTransient < handle
 				ylabel('Correct rate');
 				title(titles{i});
 
-
 			end
-
-
-			
 		end
 
 
@@ -6723,10 +8790,10 @@ classdef BlinkTransient < handle
 				x = zeros( 1, sum([Trials(iTrial).drifts.duration]) );
 				y = zeros(size(x));
 				index = 0;
-				Trials(iTrial).blinks.start = [Trials(iTrial).blinks.start, Trials(iTrial).notracks.start];
-				Trials(iTrial).blinks.duration = [Trials(iTrial).blinks.duration, Trials(iTrial).notracks.duration];
+				starts = [Trials(iTrial).blinks.start, Trials(iTrial).notracks.start];
+				durations = [Trials(iTrial).blinks.duration, Trials(iTrial).notracks.duration];
 				for( i = 1 : size( Trials(iTrial).drifts.start, 2 ) )
-					idx = find( Trials(iTrial).drifts.start(i) == Trials(iTrial).blinks.start + Trials(iTrial).blinks.duration );
+					idx = find( Trials(iTrial).drifts.start(i) == starts + durations );
 					if( ~isempty(idx) )
 						st = Trials(iTrial).drifts.start(i) + 250;
 						dur = Trials(iTrial).drifts.duration(i) - 250;
@@ -6737,7 +8804,7 @@ classdef BlinkTransient < handle
 							Trials(iTrial).drifts.duration(i) = dur;
 						end
 					end
-					idx = find( Trials(iTrial).drifts.start(i) + Trials(iTrial).drifts.duration(i) == Trials(iTrial).blinks.start );
+					idx = find( Trials(iTrial).drifts.start(i) + Trials(iTrial).drifts.duration(i) == starts );
 					if( ~isempty(idx) )
 						dur = Trials(iTrial).drifts.duration(i) - 50;
 						if( dur < 1 )
@@ -7055,6 +9122,8 @@ classdef BlinkTransient < handle
 			Trials( [Trials.tBlinkBeepOn] - [Trials.tRampOn] > -600 & ~[Trials.hasBlink] | [Trials.tBlinkBeepOn] - [Trials.tRampOn] < -600 & [Trials.hasBlink] ) = [];
 			Trials = BlinkTransient.ETScreen(Trials);
 			if( isempty(Trials) ) return; end
+			
+			Trials = Trials( ~[Trials.hasSac] & ~[Trials.hasMicrosac] );	% drift only trials
 
 			RT = zeros(size(Trials));
 			for( iTrial = size(Trials,2) : -1 : 1 )
@@ -7227,11 +9296,17 @@ classdef BlinkTransient < handle
 			end
 
 			trials = BlinkTransient.ETScreen( [data(blockIndices).trials] );
-			trials = trials([trials.hasBlink]);
+			trials( isnan([trials.hasBlink]) ) = [];
+			trials = trials( [trials.hasBlink] | ~[trials.hasBlink] );
+			trials = trials( ~[trials.hasSac] & ~[trials.hasMicrosac] );	% drift only trials
 			durations = zeros(size(trials));
 			for( iTrial = 1 : size(trials,2) )
 				sRate = trials(iTrial).sRate;
-				index = trials(iTrial).tRampOn - trials(iTrial).tTrialStart <= ( trials(iTrial).blinks.start -1 ) / sRate * 1000 & (trials(iTrial).blinks.start + trials(iTrial).blinks.duration - 2)/sRate*1000 <= trials(iTrial).tMaskOn - trials(iTrial).tTrialStart;
+				if( trials(iTrial).hasBlink )
+					index = trials(iTrial).tRampOn - trials(iTrial).tTrialStart <= ( trials(iTrial).blinks.start -1 ) / sRate * 1000 & (trials(iTrial).blinks.start + trials(iTrial).blinks.duration - 2)/sRate*1000 <= trials(iTrial).tMaskOn - trials(iTrial).tTrialStart;
+				else
+					index = trials(iTrial).tRampOn - trials(iTrial).tTrialStart > ( trials(iTrial).blinks.start -1 ) / sRate * 1000;
+				end
 				if( sum(index) == 1 )
 					durations(iTrial) = (trials(iTrial).blinks.duration(index) - 1) / sRate * 1000;
 				elseif( sum(index) > 1 )
@@ -7294,9 +9369,9 @@ classdef BlinkTransient < handle
 				data = ToolKit.Hist( durations, edges, false );
 				data = data / sum(data);
 				bar( (edges(1:end-1) + edges(2:end)) / 2, data, 0.9, 'FaceColor', [0.4 0.4 0.4], 'LineStyle', 'none', 'FaceAlpha', 1 ); hold on;
-				med = median(durations);
-				plot( [1 1]*med, [0 0.3], 'k--', 'LineWidth', 2 );
-				text( med, 0.29, sprintf( ' %.2fms', med ), 'HorizontalAlignment', 'left', 'VerticalAlignment', 'top', 'FontSize', 18 );
+				m = mean(durations);
+				plot( [1 1]*m, [0 0.3], 'k--', 'LineWidth', 2 );
+				text( m, 0.29, sprintf( ' %.2fms', m ), 'HorizontalAlignment', 'left', 'VerticalAlignment', 'top', 'FontSize', 18 );
 				set( gca, 'XLim', [0 410], 'YLim', [0 0.3], 'LineWidth', 1, 'box', 'off', 'FontSize', 20 );
 
 				if(isFit)
@@ -8346,10 +10421,6 @@ classdef BlinkTransient < handle
 			set( gca, 'FontSize', FontSize, 'LineWidth', LineWidth, 'XScale', 'log', 'YScale', 'log', 'XLim', [tFreqs_D(2), 60], 'XTick', [1 10 40], 'XTickLabel', [1 10 40] );
 			xlabel('Temporal frequency (Hz)');
 			ylabel('Power spectral density');
-		end
-
-
-		function TemporalSingleCell()
 		end
 
 

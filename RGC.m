@@ -287,7 +287,7 @@ classdef RGC < handle
 		            D = 2.31/1000;   % s
 		            N_L = 22.60;
 		            Tau_L = 1.98/1000;  % s
-		            H_S = 1;%0.93;        % H_S = 1 makes the summation of the kernel be zero
+		            H_S = 0.93;        % H_S = 1 makes the summation of the kernel be zero
 		            Tau_0 = 153.34/1000;  % s
 		            C_half = 0.051;
             	else
@@ -318,11 +318,14 @@ classdef RGC < handle
         end
 
 
-        function senseProfile = TemporalFreqGainProfile( sFreqs, cellType, specifier )
+        function senseProfile = TemporalFreqGainProfile( tFreqs, cellType, specifier, isMean )
             %% From Benardete & Kaplan, JPhy, 1999 (P cells); and Benardete & Kaplan, VisNeuro, 1999 (M cells)
-            %  sFreqs:          Temporal frequencies
+            %  tFreqs:          Temporal frequencies
             %  cellType:        P cell or M cell
             %  specifier:       ON cell or OFF cell when cellType is M; center or surround when cellType is P
+            if( nargin() < 4 || isempty(isMean) )
+                isMean = false;
+            end
 
             FR = [];
             tRF = [];
@@ -350,13 +353,27 @@ classdef RGC < handle
 
             elseif( lower(cellType) == 'm' )    % M cell
                 if( strcmpi( specifier, 'on' ) )
-                    A = 566.92;
-                    D = 2.2/1000;   % s
-                    N_L = 30.30;
-                    Tau_L = 1.41/1000;  % s
-                    H_S = 1;%0.98;
-                    Tau_0 = 54.6/1000;  % s
-                    C_half = 0.056;
+                    if(isMean)
+                        % mean
+                        A = 566.92;
+                        D = 2.2/1000;   % s
+                        N_L = 30.30;
+                        Tau_L = 1.41/1000;  % s
+                        H_S = 0.98;
+                        Tau_0 = 54.6/1000;  % s
+                        C_half = 0.056;
+                    
+                    else
+                        % median
+                        A = 499.77;
+                        D = 2/1000;   % s
+                        N_L = 30;
+                        Tau_L = 1.44/1000;  % s
+                        H_S = 1.00;
+                        Tau_0 = 37.34/1000;  % s
+                        C_half = 0.051;
+                    end
+                    
                 elseif( strcmpi( specifier, 'off' ) )
                     A = 550.14;
                     D = 2.31/1000;   % s
@@ -376,7 +393,7 @@ classdef RGC < handle
                 return;
             end
 
-            w = 2*pi * sFreqs;
+            w = 2*pi * tFreqs;
             senseProfile = abs( A * exp( -i*w*D ) .* ( 1 - H_S ./ (1 + i*w*Tau_H) ).^N_H .* ( 1 ./ (1 + i*w*Tau_L) ).^N_L );
         end
 
